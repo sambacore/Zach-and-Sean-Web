@@ -14,12 +14,12 @@ const WORLDS: WorldDef[] = [
   { number: 1, dept: 'TRAFFIC',     genre: 'KART RACER',    sceneKey: 'TrafficScene',    available: true },
   { number: 2, dept: 'VICE',        genre: 'BEAT-EM-UP',    sceneKey: 'ViceScene',       available: true },
   { number: 3, dept: 'SWAT',        genre: 'RUN & GUN',     sceneKey: 'SWATScene',       available: true },
-  { number: 4, dept: 'HOMICIDE',    genre: 'STEALTH',       sceneKey: '',                available: false },
-  { number: 5, dept: 'SVU',         genre: 'ADVENTURE',     sceneKey: '',                available: false },
-  { number: 6, dept: 'NARCOTICS',   genre: 'TOWER DEF',     sceneKey: '',                available: false },
-  { number: 7, dept: 'K-9 UNIT',    genre: 'RUNNER',        sceneKey: '',                available: false },
-  { number: 8, dept: 'INT. AFFAIRS',genre: 'INFILTRATION',  sceneKey: '',                available: false },
-  { number: 9, dept: 'PRECINCT',    genre: '★ FINAL ★',     sceneKey: '',                available: false },
+  { number: 4, dept: 'HOMICIDE',    genre: 'STEALTH',       sceneKey: 'HomicideScene',          available: true },
+  { number: 5, dept: 'SVU',         genre: 'ADVENTURE',     sceneKey: 'SVUScene',               available: true },
+  { number: 6, dept: 'NARCOTICS',   genre: 'TOWER DEF',     sceneKey: 'NarcoticsScene',         available: true },
+  { number: 7, dept: 'K-9 UNIT',    genre: 'RUNNER',        sceneKey: 'K9Scene',                available: true },
+  { number: 8, dept: 'INT. AFFAIRS',genre: 'INFILTRATION',  sceneKey: 'InternalAffairsScene',   available: true },
+  { number: 9, dept: 'PRECINCT',    genre: '★ FINAL ★',     sceneKey: 'PrecinctScene',          available: true },
 ];
 
 export class WorldSelectScene extends Phaser.Scene {
