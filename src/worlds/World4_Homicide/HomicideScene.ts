@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GameState } from '../../systems/GameState';
 import { UnlockSystem } from '../../systems/UnlockSystem';
 import { createPixelText } from '../../ui/PixelText';
+import { MobileControls } from '../../ui/MobileControls';
 
 interface Guard {
   x: number;
@@ -37,6 +38,7 @@ export class HomicideScene extends Phaser.Scene {
   private collected = 0;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private mobileControls?: MobileControls;
   private gameActive = true;
   private alertFlash = 0;
 
@@ -83,6 +85,7 @@ export class HomicideScene extends Phaser.Scene {
       .setScrollFactor(0).setDepth(50);
 
     this.cursors = this.input.keyboard!.createCursorKeys();
+    this.mobileControls = new MobileControls(this);
     void height;
   }
 
@@ -210,11 +213,22 @@ export class HomicideScene extends Phaser.Scene {
     const ek = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
     lk.on('down', () => { sel = 0; redraw(); });
     rk.on('down', () => { sel = 1; redraw(); });
-    ek.on('down', () => {
+    let confirmed = false;
+    const confirm = () => {
+      if (confirmed) return;
+      confirmed = true;
       GameState.getInstance().makeChoice(4, sel === 0 ? 'destroy' : 'keep');
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('WorldSelectScene'));
-    });
+    };
+    ek.on('down', confirm);
+    if (this.sys.game.device.input.touch) {
+      this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
+        sel = p.x < width / 2 ? 0 : 1;
+        redraw();
+        this.time.delayedCall(80, confirm);
+      });
+    }
   }
 
   update(_time: number, delta: number): void {
@@ -222,10 +236,12 @@ export class HomicideScene extends Phaser.Scene {
     const dt = delta / 1000;
     const { width, height } = this.scale;
 
-    if (this.cursors.left.isDown)  this.playerX -= this.playerSpeed * dt;
-    if (this.cursors.right.isDown) this.playerX += this.playerSpeed * dt;
-    if (this.cursors.up.isDown)    this.playerY -= this.playerSpeed * dt;
-    if (this.cursors.down.isDown)  this.playerY += this.playerSpeed * dt;
+    this.mobileControls?.update();
+    const mb = this.mobileControls?.state;
+    if (this.cursors.left.isDown  || mb?.left)  this.playerX -= this.playerSpeed * dt;
+    if (this.cursors.right.isDown || mb?.right) this.playerX += this.playerSpeed * dt;
+    if (this.cursors.up.isDown    || mb?.up)    this.playerY -= this.playerSpeed * dt;
+    if (this.cursors.down.isDown  || mb?.down)  this.playerY += this.playerSpeed * dt;
 
     this.playerX = Phaser.Math.Clamp(this.playerX, 18, width - 18);
     this.playerY = Phaser.Math.Clamp(this.playerY, 60, height - 18);

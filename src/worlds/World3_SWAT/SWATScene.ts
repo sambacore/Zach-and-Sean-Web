@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GameState } from '../../systems/GameState';
 import { UnlockSystem } from '../../systems/UnlockSystem';
 import { createPixelText } from '../../ui/PixelText';
+import { MobileControls } from '../../ui/MobileControls';
 
 interface SWATEnemy {
   x: number;
@@ -78,6 +79,7 @@ export class SWATScene extends Phaser.Scene {
   private state!: GameState;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private zKey!: Phaser.Input.Keyboard.Key;
+  private mobileControls?: MobileControls;
 
   // Invincibility
   private invincible: boolean = false;
@@ -146,6 +148,7 @@ export class SWATScene extends Phaser.Scene {
 
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.zKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+    this.mobileControls = new MobileControls(this);
 
     this.updateHUD();
   }
@@ -491,23 +494,20 @@ export class SWATScene extends Phaser.Scene {
     if (this.shootCooldown > 0) this.shootCooldown -= delta;
 
     // Player input
-    if (this.cursors.left.isDown) {
-      this.playerVX = -this.playerSpeed;
-      this.playerFacing = -1;
-    } else if (this.cursors.right.isDown) {
-      this.playerVX = this.playerSpeed;
-      this.playerFacing = 1;
-    } else {
-      this.playerVX *= 0.7;
-    }
+    this.mobileControls?.update();
+    const mb = this.mobileControls?.state;
+
+    if (this.cursors.left.isDown  || mb?.left)  { this.playerVX = -this.playerSpeed; this.playerFacing = -1; }
+    else if (this.cursors.right.isDown || mb?.right) { this.playerVX = this.playerSpeed; this.playerFacing = 1; }
+    else { this.playerVX *= 0.7; }
 
     // Jump
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.up) && this.playerOnGround) {
+    if ((Phaser.Input.Keyboard.JustDown(this.cursors.up) || mb?.upJustDown) && this.playerOnGround) {
       this.playerVY = -420;
     }
 
     // Shoot
-    if (Phaser.Input.Keyboard.JustDown(this.zKey) && this.shootCooldown <= 0) {
+    if ((Phaser.Input.Keyboard.JustDown(this.zKey) || mb?.actionJustDown) && this.shootCooldown <= 0) {
       this.shootCooldown = this.SHOOT_COOLDOWN;
       const bulletSpeed = 450 * this.playerFacing;
       this.shootBullet(this.playerX + this.playerFacing * 14, this.playerY + 4, bulletSpeed, true);

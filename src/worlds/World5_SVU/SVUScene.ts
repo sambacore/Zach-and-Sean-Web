@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GameState } from '../../systems/GameState';
 import { UnlockSystem } from '../../systems/UnlockSystem';
 import { createPixelText } from '../../ui/PixelText';
+import { MobileControls } from '../../ui/MobileControls';
 
 interface Witness {
   x: number;
@@ -32,6 +33,7 @@ export class SVUScene extends Phaser.Scene {
   private hudText!: Phaser.GameObjects.Text;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private zKey!: Phaser.Input.Keyboard.Key;
+  private mobileControls?: MobileControls;
   private gameActive = true;
 
   constructor() { super({ key: 'SVUScene' }); }
@@ -69,6 +71,7 @@ export class SVUScene extends Phaser.Scene {
 
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.zKey    = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+    this.mobileControls = new MobileControls(this);
     void height;
   }
 
@@ -240,11 +243,22 @@ export class SVUScene extends Phaser.Scene {
     const ek = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
     lk.on('down', () => { sel = 0; redraw(); });
     rk.on('down', () => { sel = 1; redraw(); });
-    ek.on('down', () => {
+    let confirmed = false;
+    const confirm = () => {
+      if (confirmed) return;
+      confirmed = true;
       GameState.getInstance().makeChoice(5, sel === 0 ? 'protect' : 'intimidate');
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('WorldSelectScene'));
-    });
+    };
+    ek.on('down', confirm);
+    if (this.sys.game.device.input.touch) {
+      this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
+        sel = p.x < width / 2 ? 0 : 1;
+        redraw();
+        this.time.delayedCall(80, confirm);
+      });
+    }
   }
 
   update(_time: number, delta: number): void {
@@ -252,20 +266,23 @@ export class SVUScene extends Phaser.Scene {
     const dt = delta / 1000;
     const { width } = this.scale;
 
+    this.mobileControls?.update();
+    const mb = this.mobileControls?.state;
+
     if (!this.dialogActive) {
-      if (this.cursors.left.isDown)  { this.playerX -= this.playerSpeed * dt; this.playerFacing = -1; }
-      if (this.cursors.right.isDown) { this.playerX += this.playerSpeed * dt; this.playerFacing =  1; }
+      if (this.cursors.left.isDown  || mb?.left)  { this.playerX -= this.playerSpeed * dt; this.playerFacing = -1; }
+      if (this.cursors.right.isDown || mb?.right) { this.playerX += this.playerSpeed * dt; this.playerFacing =  1; }
       this.playerX = Phaser.Math.Clamp(this.playerX, 16, width - 16);
       this.playerY = 450;
 
-      if (Phaser.Input.Keyboard.JustDown(this.zKey)) {
+      if (Phaser.Input.Keyboard.JustDown(this.zKey) || mb?.actionJustDown) {
         const near = this.witnesses.find(w =>
           !w.interviewed && Math.abs(w.x - this.playerX) < 45 && Math.abs(w.y - this.playerY) < 45
         );
         if (near) this.openDialog(near);
       }
     } else {
-      if (Phaser.Input.Keyboard.JustDown(this.zKey)) this.closeDialog();
+      if (Phaser.Input.Keyboard.JustDown(this.zKey) || mb?.actionJustDown) this.closeDialog();
     }
 
     this.drawBg();

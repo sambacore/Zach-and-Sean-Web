@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GameState } from '../../systems/GameState';
 import { UnlockSystem } from '../../systems/UnlockSystem';
 import { createPixelText } from '../../ui/PixelText';
+import { MobileControls } from '../../ui/MobileControls';
 
 interface Enemy {
   x: number;
@@ -61,6 +62,7 @@ export class ViceScene extends Phaser.Scene {
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private zKey!: Phaser.Input.Keyboard.Key;
+  private mobileControls?: MobileControls;
 
   // State
   private gameActive: boolean = true;
@@ -145,6 +147,7 @@ export class ViceScene extends Phaser.Scene {
 
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.zKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+    this.mobileControls = new MobileControls(this);
 
     this.updateHUD();
   }
@@ -509,20 +512,15 @@ export class ViceScene extends Phaser.Scene {
     }
 
     // Player movement
+    this.mobileControls?.update();
+    const mb = this.mobileControls?.state;
+
     let moving = false;
-    if (this.cursors.left.isDown) {
-      this.playerX -= this.playerSpeed * dt;
-      this.playerFacing = -1;
-      moving = true;
-    }
-    if (this.cursors.right.isDown) {
-      this.playerX += this.playerSpeed * dt;
-      this.playerFacing = 1;
-      moving = true;
-    }
+    if (this.cursors.left.isDown  || mb?.left)  { this.playerX -= this.playerSpeed * dt; this.playerFacing = -1; moving = true; }
+    if (this.cursors.right.isDown || mb?.right) { this.playerX += this.playerSpeed * dt; this.playerFacing =  1; moving = true; }
 
     // Jump
-    if (this.cursors.up.isDown && this.playerY >= this.playerGroundY) {
+    if ((this.cursors.up.isDown || mb?.up) && this.playerY >= this.playerGroundY) {
       this.playerVY = -350;
     }
 
@@ -535,7 +533,7 @@ export class ViceScene extends Phaser.Scene {
     }
 
     // Attack
-    if (Phaser.Input.Keyboard.JustDown(this.zKey)) {
+    if (Phaser.Input.Keyboard.JustDown(this.zKey) || mb?.actionJustDown) {
       this.tryAttack();
     }
 

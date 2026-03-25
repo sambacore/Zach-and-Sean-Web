@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GameState } from '../../systems/GameState';
 import { UnlockSystem } from '../../systems/UnlockSystem';
 import { createPixelText } from '../../ui/PixelText';
+import { MobileControls } from '../../ui/MobileControls';
 
 interface Obstacle {
   x: number;
@@ -48,6 +49,7 @@ export class K9Scene extends Phaser.Scene {
   private distText!: Phaser.GameObjects.Text;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private mobileControls?: MobileControls;
   private gameActive = true;
 
   constructor() { super({ key: 'K9Scene' }); }
@@ -80,6 +82,7 @@ export class K9Scene extends Phaser.Scene {
       .setScrollFactor(0).setDepth(50);
 
     this.cursors = this.input.keyboard!.createCursorKeys();
+    this.mobileControls = new MobileControls(this);
     void height;
   }
 
@@ -271,11 +274,22 @@ export class K9Scene extends Phaser.Scene {
     const ek = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
     lk.on('down', () => { sel = 0; redraw(); });
     rk.on('down', () => { sel = 1; redraw(); });
-    ek.on('down', () => {
+    let confirmed = false;
+    const confirm = () => {
+      if (confirmed) return;
+      confirmed = true;
       GameState.getInstance().makeChoice(7, sel === 0 ? 'befriend' : 'ignore');
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('WorldSelectScene'));
-    });
+    };
+    ek.on('down', confirm);
+    if (this.sys.game.device.input.touch) {
+      this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
+        sel = p.x < width / 2 ? 0 : 1;
+        redraw();
+        this.time.delayedCall(80, confirm);
+      });
+    }
   }
 
   update(_time: number, delta: number): void {
@@ -299,13 +313,16 @@ export class K9Scene extends Phaser.Scene {
       if (this.invTimer >= this.INV_DUR) this.invincible = false;
     }
 
+    this.mobileControls?.update();
+    const mb = this.mobileControls?.state;
+
     // Jump
     const onGround = this.playerY >= GROUND_Y;
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.up) && onGround) {
+    if ((Phaser.Input.Keyboard.JustDown(this.cursors.up) || mb?.upJustDown) && onGround) {
       this.playerVY = this.JUMP_FORCE;
       this.jumpHeld = true;
     }
-    if (this.cursors.up.isUp) this.jumpHeld = false;
+    if (this.cursors.up.isUp && !mb?.up) this.jumpHeld = false;
     // Variable jump height
     const gravity = (this.jumpHeld && this.playerVY < 0) ? this.GRAVITY * 0.6 : this.GRAVITY;
     this.playerVY += gravity * dt;
@@ -316,7 +333,7 @@ export class K9Scene extends Phaser.Scene {
     }
 
     // Duck
-    this.isCrouching = this.cursors.down.isDown && onGround;
+    this.isCrouching = (this.cursors.down.isDown || (mb?.down ?? false)) && onGround;
 
     // Spawn obstacles
     this.spawnTimer += delta;

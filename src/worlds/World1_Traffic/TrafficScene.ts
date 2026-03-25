@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GameState } from '../../systems/GameState';
 import { UnlockSystem } from '../../systems/UnlockSystem';
 import { createPixelText } from '../../ui/PixelText';
+import { MobileControls } from '../../ui/MobileControls';
 
 interface CopCar {
   x: number;
@@ -41,6 +42,7 @@ export class TrafficScene extends Phaser.Scene {
   // State
   private gameActive: boolean = true;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private mobileControls?: MobileControls;
   private state!: GameState;
 
   // Invincibility flash after hit
@@ -117,6 +119,7 @@ export class TrafficScene extends Phaser.Scene {
 
     // Controls
     this.cursors = this.input.keyboard!.createCursorKeys();
+    this.mobileControls = new MobileControls(this);
 
     // Instruction text (fades out)
     const instructions = createPixelText(
@@ -360,18 +363,12 @@ export class TrafficScene extends Phaser.Scene {
     }
 
     // Player movement
-    if (this.cursors.left.isDown) {
-      this.playerX -= this.playerSpeed * dt;
-    }
-    if (this.cursors.right.isDown) {
-      this.playerX += this.playerSpeed * dt;
-    }
-    if (this.cursors.up.isDown) {
-      this.playerY -= this.playerSpeed * dt;
-    }
-    if (this.cursors.down.isDown) {
-      this.playerY += this.playerSpeed * dt;
-    }
+    this.mobileControls?.update();
+    const mb = this.mobileControls?.state;
+    if (this.cursors.left.isDown  || mb?.left)  { this.playerX -= this.playerSpeed * dt; }
+    if (this.cursors.right.isDown || mb?.right) { this.playerX += this.playerSpeed * dt; }
+    if (this.cursors.up.isDown    || mb?.up)    { this.playerY -= this.playerSpeed * dt; }
+    if (this.cursors.down.isDown  || mb?.down)  { this.playerY += this.playerSpeed * dt; }
 
     // Clamp player to road
     this.playerX = Phaser.Math.Clamp(this.playerX, 110, width - 110);

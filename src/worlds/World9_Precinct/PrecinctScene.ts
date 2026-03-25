@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GameState } from '../../systems/GameState';
 import { UnlockSystem } from '../../systems/UnlockSystem';
 import { createPixelText } from '../../ui/PixelText';
+import { MobileControls } from '../../ui/MobileControls';
 
 type Phase = 'phase1' | 'cutscene' | 'phase2' | 'choice';
 
@@ -90,6 +91,7 @@ export class PrecinctScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private zKey!: Phaser.Input.Keyboard.Key;
   private xKey!: Phaser.Input.Keyboard.Key;
+  private mobileControls?: MobileControls;
 
   private gameActive = true;
   private state!: GameState;
@@ -135,6 +137,7 @@ export class PrecinctScene extends Phaser.Scene {
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.zKey    = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
     this.xKey    = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.X);
+    this.mobileControls = new MobileControls(this);
 
     this.updateHUD();
     void height;
@@ -438,11 +441,22 @@ export class PrecinctScene extends Phaser.Scene {
     const ek = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
     lk.on('down', () => { sel = 0; redraw(); });
     rk.on('down', () => { sel = 1; redraw(); });
-    ek.on('down', () => {
+    let confirmed = false;
+    const confirm = () => {
+      if (confirmed) return;
+      confirmed = true;
       GameState.getInstance().makeChoice(9, sel === 0 ? 'justice' : 'escape');
       this.cameras.main.fadeOut(800, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('WorldSelectScene'));
-    });
+    };
+    ek.on('down', confirm);
+    if (this.sys.game.device.input.touch) {
+      this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
+        sel = p.x < width / 2 ? 0 : 1;
+        redraw();
+        this.time.delayedCall(80, confirm);
+      });
+    }
   }
 
   update(_time: number, delta: number): void {
@@ -466,12 +480,14 @@ export class PrecinctScene extends Phaser.Scene {
     }
 
     // Player movement
-    if (this.cursors.left.isDown)  { this.playerX -= this.playerSpeed * dt; this.playerFacing = -1; }
-    if (this.cursors.right.isDown) { this.playerX += this.playerSpeed * dt; this.playerFacing =  1; }
+    this.mobileControls?.update();
+    const mb = this.mobileControls?.state;
+    if (this.cursors.left.isDown  || mb?.left)  { this.playerX -= this.playerSpeed * dt; this.playerFacing = -1; }
+    if (this.cursors.right.isDown || mb?.right) { this.playerX += this.playerSpeed * dt; this.playerFacing =  1; }
 
     // Jump
     const onGround = this.playerY >= GROUND_Y;
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.up) && onGround) {
+    if ((Phaser.Input.Keyboard.JustDown(this.cursors.up) || mb?.upJustDown) && onGround) {
       this.playerVY = -500;
     }
     this.playerVY += 1200 * dt;
@@ -480,7 +496,7 @@ export class PrecinctScene extends Phaser.Scene {
     this.playerX = Phaser.Math.Clamp(this.playerX, 20, WORLD_W - 20);
 
     // Attack
-    if (Phaser.Input.Keyboard.JustDown(this.zKey)) this.tryAttack();
+    if (Phaser.Input.Keyboard.JustDown(this.zKey) || mb?.actionJustDown) this.tryAttack();
     if (Phaser.Input.Keyboard.JustDown(this.xKey)) this.shootProjectile(true);
 
     // Boss AI

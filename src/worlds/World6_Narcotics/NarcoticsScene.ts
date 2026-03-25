@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GameState } from '../../systems/GameState';
 import { UnlockSystem } from '../../systems/UnlockSystem';
 import { createPixelText } from '../../ui/PixelText';
+import { MobileControls } from '../../ui/MobileControls';
 
 interface Runner {
   x: number;
@@ -61,6 +62,7 @@ export class NarcoticsScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private zKey!: Phaser.Input.Keyboard.Key;
   private xKey!: Phaser.Input.Keyboard.Key;
+  private mobileControls?: MobileControls;
   private gameActive = true;
 
   private hudText!: Phaser.GameObjects.Text;
@@ -100,6 +102,7 @@ export class NarcoticsScene extends Phaser.Scene {
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.zKey    = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
     this.xKey    = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.X);
+    this.mobileControls = new MobileControls(this);
 
     this.updateHUD();
     void height;
@@ -230,11 +233,22 @@ export class NarcoticsScene extends Phaser.Scene {
     const ek = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
     lk.on('down', () => { sel = 0; redraw(); });
     rk.on('down', () => { sel = 1; redraw(); });
-    ek.on('down', () => {
+    let confirmed = false;
+    const confirm = () => {
+      if (confirmed) return;
+      confirmed = true;
       GameState.getInstance().makeChoice(6, sel === 0 ? 'burn' : 'take');
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('WorldSelectScene'));
-    });
+    };
+    ek.on('down', confirm);
+    if (this.sys.game.device.input.touch) {
+      this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
+        sel = p.x < width / 2 ? 0 : 1;
+        redraw();
+        this.time.delayedCall(80, confirm);
+      });
+    }
   }
 
   update(_time: number, delta: number): void {
@@ -243,16 +257,18 @@ export class NarcoticsScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     // Player movement
-    if (this.cursors.up.isDown)    this.playerY -= this.playerSpeed * dt;
-    if (this.cursors.down.isDown)  this.playerY += this.playerSpeed * dt;
-    if (this.cursors.left.isDown)  this.playerX -= this.playerSpeed * dt;
-    if (this.cursors.right.isDown) this.playerX += this.playerSpeed * dt;
+    this.mobileControls?.update();
+    const mb = this.mobileControls?.state;
+    if (this.cursors.up.isDown    || mb?.up)    this.playerY -= this.playerSpeed * dt;
+    if (this.cursors.down.isDown  || mb?.down)  this.playerY += this.playerSpeed * dt;
+    if (this.cursors.left.isDown  || mb?.left)  this.playerX -= this.playerSpeed * dt;
+    if (this.cursors.right.isDown || mb?.right) this.playerX += this.playerSpeed * dt;
     this.playerX = Phaser.Math.Clamp(this.playerX, 16, 200);
     this.playerY = Phaser.Math.Clamp(this.playerY, 60, height - 20);
 
     // Shoot
     if (this.shootCooldown > 0) this.shootCooldown -= delta;
-    if (Phaser.Input.Keyboard.JustDown(this.zKey) && this.shootCooldown <= 0) {
+    if ((Phaser.Input.Keyboard.JustDown(this.zKey) || mb?.actionJustDown) && this.shootCooldown <= 0) {
       this.shootBullet();
       this.shootCooldown = this.SHOOT_CD;
     }
