@@ -12,7 +12,49 @@ import { NarcoticsScene } from './worlds/World6_Narcotics/NarcoticsScene';
 import { K9Scene } from './worlds/World7_K9/K9Scene';
 import { InternalAffairsScene } from './worlds/World8_InternalAffairs/InternalAffairsScene';
 import { PrecinctScene } from './worlds/World9_Precinct/PrecinctScene';
+import { mobileInputState, isMobileBrowser } from './ui/MobileInput';
 
+// ── HTML mobile controls ──────────────────────────────────────────────────────
+// Only injected for real mobile browsers; desktop never sees them.
+if (isMobileBrowser()) {
+  const controls = document.createElement('div');
+  controls.id = 'mobile-controls';
+  controls.innerHTML = `
+    <div id="dpad">
+      <button data-key="up"    class="dpad-btn" style="grid-area:up">▲</button>
+      <button data-key="left"  class="dpad-btn" style="grid-area:left">◀</button>
+      <button data-key="down"  class="dpad-btn" style="grid-area:down">▼</button>
+      <button data-key="right" class="dpad-btn" style="grid-area:right">▶</button>
+    </div>
+    <button id="action-btn">ATK</button>
+  `;
+  document.body.appendChild(controls);
+  controls.style.display = 'flex';
+
+  // Map button key → mobileInputState field
+  type InputKey = 'left' | 'right' | 'up' | 'down' | 'action';
+  const keyMap: Record<string, InputKey> = {
+    left: 'left', right: 'right', up: 'up', down: 'down', action: 'action',
+  };
+
+  const setKey = (key: InputKey, val: boolean) => { mobileInputState[key] = val; };
+
+  // D-pad buttons
+  controls.querySelectorAll<HTMLButtonElement>('.dpad-btn').forEach(btn => {
+    const key = btn.dataset.key as InputKey;
+    btn.addEventListener('touchstart', e => { e.preventDefault(); setKey(key, true);  }, { passive: false });
+    btn.addEventListener('touchend',   e => { e.preventDefault(); setKey(key, false); }, { passive: false });
+    btn.addEventListener('touchcancel',e => { e.preventDefault(); setKey(key, false); }, { passive: false });
+  });
+
+  // Action button
+  const atk = document.getElementById('action-btn')!;
+  atk.addEventListener('touchstart', e => { e.preventDefault(); setKey('action', true);  }, { passive: false });
+  atk.addEventListener('touchend',   e => { e.preventDefault(); setKey('action', false); }, { passive: false });
+  atk.addEventListener('touchcancel',e => { e.preventDefault(); setKey('action', false); }, { passive: false });
+}
+
+// ── Phaser config ─────────────────────────────────────────────────────────────
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   width: 800,

@@ -9,35 +9,107 @@
         margin: 0;
         padding: 0;
         box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
       }
+
       body {
         background: #1a1a2e;
         display: flex;
-        justify-content: center;
+        flex-direction: column;
         align-items: center;
-        height: 100vh;
+        min-height: 100vh;
         overflow: hidden;
       }
+
+      /* Desktop: vertically centre the canvas, no mobile controls */
+      #game-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex: 1;
+        width: 100%;
+      }
+
       canvas {
         display: block;
         image-rendering: pixelated;
         image-rendering: crisp-edges;
       }
 
-      /* Mobile: push canvas toward the top, leaving room for on-screen controls */
-      @media (max-width: 768px), (pointer: coarse) {
+      /* ── Mobile controls (hidden by default, shown via JS on mobile) ── */
+      #mobile-controls {
+        display: none; /* JS sets to flex */
+        width: 100%;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 24px 16px;
+        background: rgba(0, 0, 0, 0.4);
+        flex-shrink: 0;
+      }
+
+      /* D-pad grid */
+      #dpad {
+        display: grid;
+        grid-template-areas:
+          ".    up    ."
+          "left .     right"
+          ".    down  .";
+        grid-template-columns: 80px 80px 80px;
+        grid-template-rows:    80px 20px 80px;
+        gap: 0;
+      }
+
+      .dpad-btn,
+      #action-btn {
+        width: 80px;
+        height: 80px;
+        border-radius: 12px;
+        border: 2px solid rgba(68, 136, 204, 0.8);
+        background: rgba(68, 136, 204, 0.3);
+        color: #fff;
+        font-size: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        touch-action: none;
+        transition: background 0.08s;
+      }
+
+      .dpad-btn:active {
+        background: rgba(68, 136, 204, 0.75);
+      }
+
+      #action-btn {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        border-color: rgba(204, 68, 34, 0.8);
+        background: rgba(204, 68, 34, 0.3);
+        font-size: 22px;
+        font-weight: bold;
+        letter-spacing: 1px;
+      }
+
+      #action-btn:active {
+        background: rgba(204, 68, 34, 0.75);
+      }
+
+      /* On mobile: game goes to top, controls beneath */
+      @media (pointer: coarse) {
         body {
-          align-items: flex-start;
-          padding-top: env(safe-area-inset-top, 8px);
+          justify-content: flex-start;
         }
         #game-container {
-          margin-top: 8px;
+          flex: 0 0 auto;
         }
       }
     </style>
   </head>
   <body>
     <div id="game-container"></div>
+    <!-- #mobile-controls injected here by main.ts on mobile only -->
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
