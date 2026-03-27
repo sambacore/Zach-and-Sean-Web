@@ -70,6 +70,24 @@ export class NarcoticsScene extends Phaser.Scene {
 
   constructor() { super({ key: 'NarcoticsScene' }); }
 
+  init(): void {
+    this.runners = [];
+    this.traps = [];
+    this.bullets = [];
+    this.wave = 1;
+    this.spawnLeft = 0;
+    this.spawnTimer = 0;
+    this.waveCleared = false;
+    this.waveDelay = 0;
+    this.trapsPlaced = 0;
+    this.lives = 3;
+    this.escaped = 0;
+    this.shootCooldown = 0;
+    this.gameActive = true;
+    this.playerX = 80;
+    this.playerY = 350;
+  }
+
   create(): void {
     const { width, height } = this.scale;
     const state = GameState.getInstance();
@@ -249,6 +267,10 @@ export class NarcoticsScene extends Phaser.Scene {
         this.time.delayedCall(80, confirm);
       });
     }
+  }
+
+  shutdown(): void {
+    this.mobileControls?.destroy();
   }
 
   update(_time: number, delta: number): void {

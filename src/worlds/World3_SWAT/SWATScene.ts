@@ -90,6 +90,22 @@ export class SWATScene extends Phaser.Scene {
     super({ key: 'SWATScene' });
   }
 
+  init(): void {
+    this.enemies = [];
+    this.bullets = [];
+    this.platforms = [];
+    this.scrollX = 0;
+    this.playerVX = 0;
+    this.playerVY = 0;
+    this.playerOnGround = false;
+    this.playerFacing = 1;
+    this.playerCanShoot = true;
+    this.shootCooldown = 0;
+    this.gameActive = true;
+    this.invincible = false;
+    this.invincibleTimer = 0;
+  }
+
   create(): void {
     const { width, height } = this.scale;
     this.state = GameState.getInstance();
@@ -477,6 +493,10 @@ export class SWATScene extends Phaser.Scene {
         this.scene.start('WorldSelectScene');
       });
     });
+  }
+
+  shutdown(): void {
+    this.mobileControls?.destroy();
   }
 
   update(_time: number, delta: number): void {

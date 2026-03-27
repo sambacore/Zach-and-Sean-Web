@@ -98,6 +98,25 @@ export class PrecinctScene extends Phaser.Scene {
 
   constructor() { super({ key: 'PrecinctScene' }); }
 
+  init(): void {
+    this.projectiles = [];
+    this.floatTexts = [];
+    this.cutsceneTexts = [];
+    this.currentPhase = 'phase1';
+    this.cutsceneTimer = 0;
+    this.cutsceneStep = 0;
+    this.invincible = false;
+    this.invTimer = 0;
+    this.isAttacking = false;
+    this.attackTimer = 0;
+    this.attackCooldown = 0;
+    this.gameActive = true;
+    this.playerX = 150;
+    this.playerY = GROUND_Y;
+    this.playerVY = 0;
+    this.playerFacing = 1;
+  }
+
   create(): void {
     const { width, height } = this.scale;
     this.state = GameState.getInstance();
@@ -457,6 +476,10 @@ export class PrecinctScene extends Phaser.Scene {
         this.time.delayedCall(80, confirm);
       });
     }
+  }
+
+  shutdown(): void {
+    this.mobileControls?.destroy();
   }
 
   update(_time: number, delta: number): void {

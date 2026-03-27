@@ -60,6 +60,20 @@ export class InternalAffairsScene extends Phaser.Scene {
 
   constructor() { super({ key: 'InternalAffairsScene' }); }
 
+  init(): void {
+    this.cameras_ = [];
+    this.terminals = [];
+    this.hackedCount = 0;
+    this.hackingTerminal = null;
+    this.strikes = 0;
+    this.strikeCooldown = 0;
+    this.alertFlash = 0;
+    this.wasAlerted = false;
+    this.gameActive = true;
+    this.playerX = 100;
+    this.playerY = 300;
+  }
+
   create(): void {
     const { width, height } = this.scale;
     const state = GameState.getInstance();
@@ -296,6 +310,10 @@ export class InternalAffairsScene extends Phaser.Scene {
         this.time.delayedCall(80, confirm);
       });
     }
+  }
+
+  shutdown(): void {
+    this.mobileControls?.destroy();
   }
 
   update(time: number, delta: number): void {

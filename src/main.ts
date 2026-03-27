@@ -21,7 +21,7 @@ const config: Phaser.Types.Core.GameConfig = {
   pixelArt: true,
   antialias: false,
   roundPixels: true,
-  parent: document.body,
+  parent: document.getElementById('game-container') ?? document.body,
   scene: [
     MainMenuScene,
     CharacterSelectScene,

@@ -54,6 +54,24 @@ export class K9Scene extends Phaser.Scene {
 
   constructor() { super({ key: 'K9Scene' }); }
 
+  init(): void {
+    this.obstacles = [];
+    this.scrollX = 0;
+    this.scrollSpeed = 220;
+    this.distance = 0;
+    this.spawnTimer = 0;
+    this.nextSpawnAt = 1500;
+    this.lives = 3;
+    this.invincible = false;
+    this.invTimer = 0;
+    this.gameActive = true;
+    this.playerX = 160;
+    this.playerY = GROUND_Y;
+    this.playerVY = 0;
+    this.isCrouching = false;
+    this.jumpHeld = false;
+  }
+
   create(): void {
     const { width, height } = this.scale;
     const state = GameState.getInstance();
@@ -290,6 +308,10 @@ export class K9Scene extends Phaser.Scene {
         this.time.delayedCall(80, confirm);
       });
     }
+  }
+
+  shutdown(): void {
+    this.mobileControls?.destroy();
   }
 
   update(_time: number, delta: number): void {

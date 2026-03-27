@@ -38,6 +38,18 @@ export class SVUScene extends Phaser.Scene {
 
   constructor() { super({ key: 'SVUScene' }); }
 
+  init(): void {
+    this.witnesses = [];
+    this.interviewCount = 0;
+    this.dialogActive = false;
+    this.activeWitness = null;
+    this.dialogTexts = [];
+    this.gameActive = true;
+    this.playerX = 80;
+    this.playerY = 450;
+    this.playerFacing = 1;
+  }
+
   create(): void {
     const { width, height } = this.scale;
     const state = GameState.getInstance();
@@ -259,6 +271,10 @@ export class SVUScene extends Phaser.Scene {
         this.time.delayedCall(80, confirm);
       });
     }
+  }
+
+  shutdown(): void {
+    this.mobileControls?.destroy();
   }
 
   update(_time: number, delta: number): void {

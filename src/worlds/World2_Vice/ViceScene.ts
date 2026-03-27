@@ -78,6 +78,22 @@ export class ViceScene extends Phaser.Scene {
     super({ key: 'ViceScene' });
   }
 
+  init(): void {
+    this.enemies = [];
+    this.floatTexts = [];
+    this.scrollX = 0;
+    this.playerHealth = 5;
+    this.enemiesDefeated = 0;
+    this.gameActive = true;
+    this.invincible = false;
+    this.invincibleTimer = 0;
+    this.isAttacking = false;
+    this.attackTimer = 0;
+    this.attackCooldown = 0;
+    this.playerVY = 0;
+    this.playerFacing = 1;
+  }
+
   create(): void {
     const { width, height } = this.scale;
     this.state = GameState.getInstance();
@@ -491,6 +507,10 @@ export class ViceScene extends Phaser.Scene {
         });
       });
     }
+  }
+
+  shutdown(): void {
+    this.mobileControls?.destroy();
   }
 
   update(_time: number, delta: number): void {

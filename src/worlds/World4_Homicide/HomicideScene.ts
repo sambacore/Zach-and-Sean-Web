@@ -48,6 +48,16 @@ export class HomicideScene extends Phaser.Scene {
 
   constructor() { super({ key: 'HomicideScene' }); }
 
+  init(): void {
+    this.guards = [];
+    this.evidence = [];
+    this.collected = 0;
+    this.gameActive = true;
+    this.alertFlash = 0;
+    this.playerX = 80;
+    this.playerY = 300;
+  }
+
   create(): void {
     const { width, height } = this.scale;
     const state = GameState.getInstance();
@@ -229,6 +239,10 @@ export class HomicideScene extends Phaser.Scene {
         this.time.delayedCall(80, confirm);
       });
     }
+  }
+
+  shutdown(): void {
+    this.mobileControls?.destroy();
   }
 
   update(_time: number, delta: number): void {

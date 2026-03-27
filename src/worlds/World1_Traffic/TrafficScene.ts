@@ -54,6 +54,16 @@ export class TrafficScene extends Phaser.Scene {
     super({ key: 'TrafficScene' });
   }
 
+  init(): void {
+    this.copCars = [];
+    this.roadLines = [];
+    this.collisions = 0;
+    this.timeLeft = 30;
+    this.gameActive = true;
+    this.invincible = false;
+    this.invincibleTimer = 0;
+  }
+
   create(): void {
     const { width, height } = this.scale;
     this.state = GameState.getInstance();
@@ -346,6 +356,10 @@ export class TrafficScene extends Phaser.Scene {
         retryScene: 'TrafficScene',
       });
     });
+  }
+
+  shutdown(): void {
+    this.mobileControls?.destroy();
   }
 
   update(_time: number, delta: number): void {

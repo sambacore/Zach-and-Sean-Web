@@ -28,9 +28,14 @@ export class MobileControls {
     left: BtnRect; right: BtnRect; up: BtnRect; down: BtnRect; action: BtnRect;
   };
 
+  /** Returns true only when running in a real mobile browser. */
+  private static isMobileBrowser(): boolean {
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  }
+
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
-    this.isTouch = scene.sys.game.device.input.touch;
+    this.isTouch = scene.sys.game.device.input.touch && MobileControls.isMobileBrowser();
     if (!this.isTouch) return;
 
     // Support up to 10 simultaneous touch points
@@ -46,9 +51,9 @@ export class MobileControls {
 
   private buildLayout(): void {
     const { width, height } = this.scene.scale;
-    const S = 56;   // button size
-    const G = 6;    // gap between adjacent d-pad buttons
-    const M = 14;   // margin from screen edge
+    const S = 80;   // button size
+    const G = 18;   // gap between adjacent d-pad buttons (wider for easier tapping)
+    const M = 24;   // margin from screen edge
 
     // D-pad centre point (bottom-left region)
     const dcx = M + S + G + Math.floor(S / 2);
@@ -71,7 +76,7 @@ export class MobileControls {
         rect.x + Math.floor(rect.w / 2),
         rect.y + Math.floor(rect.h / 2),
         label,
-        { fontFamily: 'Arial, sans-serif', fontSize: '22px', color: '#ffffff', resolution: 2 }
+        { fontFamily: 'Arial, sans-serif', fontSize: '28px', color: '#ffffff', resolution: 2 }
       ).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.9);
       this.labelTexts.push(t);
     };

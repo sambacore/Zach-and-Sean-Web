@@ -23,9 +23,21 @@
         image-rendering: pixelated;
         image-rendering: crisp-edges;
       }
+
+      /* Mobile: push canvas toward the top, leaving room for on-screen controls */
+      @media (max-width: 768px), (pointer: coarse) {
+        body {
+          align-items: flex-start;
+          padding-top: env(safe-area-inset-top, 8px);
+        }
+        #game-container {
+          margin-top: 8px;
+        }
+      }
     </style>
   </head>
   <body>
+    <div id="game-container"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
