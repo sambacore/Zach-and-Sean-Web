@@ -97,13 +97,33 @@ const config: Phaser.Types.Core.GameConfig = {
 
 const game = new Phaser.Game(config);
 
-// After Phaser boots, force canvas to top of container regardless of what Phaser injected
-game.events.once('ready', () => {
-  const canvas = document.querySelector<HTMLCanvasElement>('#game-container canvas');
+// Phaser injects inline margin-top/margin-left on the canvas to "center" it.
+// We use a MutationObserver to continuously strip those out so the canvas
+// stays pinned to the top-left of its container.
+function stripPhaserCentering() {
+  const container = document.getElementById('game-container');
+  const canvas = container?.querySelector<HTMLCanvasElement>('canvas');
+
+  const forceTop = (el: HTMLElement | null) => {
+    if (!el) return;
+    el.style.setProperty('margin-top', '0', 'important');
+    el.style.setProperty('margin-left', '0', 'important');
+    el.style.setProperty('margin', '0', 'important');
+    el.style.setProperty('top', '0', 'important');
+    el.style.setProperty('left', '0', 'important');
+    el.style.setProperty('position', 'relative', 'important');
+  };
+
+  forceTop(canvas);
+
   if (canvas) {
-    canvas.style.position = 'relative';
-    canvas.style.top = '0';
-    canvas.style.left = '0';
-    canvas.style.margin = '0';
+    new MutationObserver(() => forceTop(canvas)).observe(canvas, {
+      attributes: true,
+      attributeFilter: ['style'],
+    });
   }
-});
+}
+
+game.events.once('ready', stripPhaserCentering);
+// Also re-run on scale change (window resize)
+game.scale.on('resize', stripPhaserCentering);
