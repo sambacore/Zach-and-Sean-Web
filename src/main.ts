@@ -102,7 +102,7 @@ const game = new Phaser.Game(config);
 // stays pinned to the top-left of its container.
 function stripPhaserCentering() {
   const container = document.getElementById('game-container');
-  const canvas = container?.querySelector<HTMLCanvasElement>('canvas');
+  const canvas = container?.querySelector<HTMLCanvasElement>('canvas') ?? null;
 
   const forceTop = (el: HTMLElement | null) => {
     if (!el) return;
