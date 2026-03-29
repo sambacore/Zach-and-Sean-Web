@@ -18,16 +18,16 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        min-height: 100vh;
+        height: 100vh;
         overflow: hidden;
       }
 
-      /* Desktop: vertically centre the canvas, no mobile controls */
+      /* Game canvas area — always at top */
       #game-container {
         display: flex;
         justify-content: center;
-        align-items: center;
-        flex: 1;
+        align-items: flex-start;
+        flex: 0 0 auto;
         width: 100%;
       }
 
@@ -35,6 +35,7 @@
         display: block;
         image-rendering: pixelated;
         image-rendering: crisp-edges;
+        margin: 0 !important;
       }
 
       /* ── Mobile controls (hidden by default, shown via JS on mobile) ── */
@@ -96,17 +97,7 @@
         background: rgba(204, 68, 34, 0.75);
       }
 
-      /* On mobile: game goes to top, controls beneath */
-      @media (pointer: coarse) {
-        body {
-          justify-content: flex-start;
-        }
-        #game-container {
-          flex: 0 0 auto;
-          align-items: flex-start;
-          justify-content: center;
-        }
-      }
+      /* Mobile: no extra overrides needed — body already stacks top-down */
     </style>
   </head>
   <body>
