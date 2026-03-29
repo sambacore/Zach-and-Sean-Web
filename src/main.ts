@@ -95,4 +95,15 @@ const config: Phaser.Types.Core.GameConfig = {
   },
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+
+// After Phaser boots, force canvas to top of container regardless of what Phaser injected
+game.events.once('ready', () => {
+  const canvas = document.querySelector<HTMLCanvasElement>('#game-container canvas');
+  if (canvas) {
+    canvas.style.position = 'relative';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.margin = '0';
+  }
+});
