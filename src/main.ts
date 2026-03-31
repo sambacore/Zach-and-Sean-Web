@@ -81,10 +81,11 @@ const config: Phaser.Types.Core.GameConfig = {
   ],
   scale: {
     mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.NO_CENTER,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
     width: 800,
     height: 600,
     expandParent: false,
+    parent: document.getElementById('game-container') ?? document.body,
   },
   physics: {
     default: 'arcade',
@@ -97,33 +98,18 @@ const config: Phaser.Types.Core.GameConfig = {
 
 const game = new Phaser.Game(config);
 
-// Phaser injects inline margin-top/margin-left on the canvas to "center" it.
-// We use a MutationObserver to continuously strip those out so the canvas
-// stays pinned to the top-left of its container.
-function stripPhaserCentering() {
+// Ensure game-container fills the available flex space so Phaser centers
+// the canvas correctly within it (not the full viewport).
+function fixContainerHeight() {
   const container = document.getElementById('game-container');
-  const canvas = container?.querySelector<HTMLCanvasElement>('canvas') ?? null;
-
-  const forceTop = (el: HTMLElement | null) => {
-    if (!el) return;
-    el.style.setProperty('margin-top', '0', 'important');
-    el.style.setProperty('margin-left', '0', 'important');
-    el.style.setProperty('margin', '0', 'important');
-    el.style.setProperty('top', '0', 'important');
-    el.style.setProperty('left', '0', 'important');
-    el.style.setProperty('position', 'relative', 'important');
-  };
-
-  forceTop(canvas);
-
-  if (canvas) {
-    new MutationObserver(() => forceTop(canvas)).observe(canvas, {
-      attributes: true,
-      attributeFilter: ['style'],
-    });
+  if (!container) return;
+  // Let CSS flex handle it — just make sure the container height is explicit
+  // so Phaser's FIT + CENTER_BOTH works within the container, not viewport.
+  const h = container.clientHeight;
+  if (h > 0) {
+    container.style.height = h + 'px';
   }
 }
 
-game.events.once('ready', stripPhaserCentering);
-// Also re-run on scale change (window resize)
-game.scale.on('resize', stripPhaserCentering);
+game.events.once('ready', fixContainerHeight);
+game.scale.on('resize', fixContainerHeight);
