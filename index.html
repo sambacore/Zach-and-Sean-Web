@@ -13,22 +13,22 @@
         user-select: none;
       }
 
-      body {
+      html, body {
         background: #1a1a2e;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        min-height: 100vh;
-        overflow: hidden;
       }
 
-      /* Desktop: vertically centre the canvas, no mobile controls */
+      /* Phaser canvas — fills its container, scaled by Phaser */
       #game-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        flex: 1;
+        position: relative;
+        flex: 1 1 auto;
+        min-height: 0;
         width: 100%;
+        overflow: hidden;
       }
 
       canvas {
@@ -37,15 +37,15 @@
         image-rendering: crisp-edges;
       }
 
-      /* ── Mobile controls (hidden by default, shown via JS on mobile) ── */
+      /* ── Mobile controls ── */
       #mobile-controls {
         display: none; /* JS sets to flex */
+        flex: 0 0 auto;
         width: 100%;
         justify-content: space-between;
         align-items: center;
         padding: 12px 24px 16px;
         background: rgba(0, 0, 0, 0.4);
-        flex-shrink: 0;
       }
 
       /* D-pad grid */
@@ -95,22 +95,12 @@
       #action-btn:active {
         background: rgba(204, 68, 34, 0.75);
       }
-
-      /* On mobile: game goes to top, controls beneath */
-      @media (pointer: coarse) {
-        body {
-          justify-content: flex-start;
-        }
-        #game-container {
-          flex: 0 0 auto;
-        }
-      }
     </style>
-    <script type="module" crossorigin src="./assets/index-DuyDKvXy.js"></script>
+    <script type="module" crossorigin src="./assets/index-DdPWf8bP.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/phaser-0RJB29YE.js">
   </head>
   <body>
     <div id="game-container"></div>
-    <!-- #mobile-controls injected here by main.ts on mobile only -->
+    <!-- #mobile-controls injected by main.ts on mobile only -->
   </body>
 </html>
