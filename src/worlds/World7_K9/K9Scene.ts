@@ -49,8 +49,16 @@ export class K9Scene extends Phaser.Scene {
   private distText!: Phaser.GameObjects.Text;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private zKey!: Phaser.Input.Keyboard.Key;
   private mobileControls?: MobileControls;
   private gameActive = true;
+
+  // Kick attack
+  private isKicking = false;
+  private kickTimer = 0;
+  private kickCooldown = 0;
+  private readonly KICK_DUR = 250;
+  private readonly KICK_CD = 600;
 
   constructor() { super({ key: 'K9Scene' }); }
 
@@ -70,6 +78,9 @@ export class K9Scene extends Phaser.Scene {
     this.playerVY = 0;
     this.isCrouching = false;
     this.jumpHeld = false;
+    this.isKicking = false;
+    this.kickTimer = 0;
+    this.kickCooldown = 0;
   }
 
   create(): void {
@@ -96,10 +107,11 @@ export class K9Scene extends Phaser.Scene {
       fontSize: '13px', color: '#aaaacc', align: 'right',
     }).setDepth(50).setScrollFactor(0).setOrigin(1, 0.5);
 
-    createPixelText(this, width / 2, 34, 'UP: JUMP  DOWN: DUCK  — reach the end!', 11, '#888888')
+    createPixelText(this, width / 2, 34, 'UP: JUMP  DOWN: DUCK  Z/ATK: KICK  — reach the end!', 11, '#888888')
       .setScrollFactor(0).setDepth(50);
 
     this.cursors = this.input.keyboard!.createCursorKeys();
+    this.zKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
     this.mobileControls = new MobileControls(this);
     void height;
   }
@@ -248,6 +260,16 @@ export class K9Scene extends Phaser.Scene {
       this.playerGfx.fillStyle(0xffccaa, 1);
       this.playerGfx.fillCircle(this.playerX, py - 10, 9);
     }
+    // Kick leg swing
+    if (this.isKicking) {
+      const progress = this.kickTimer / this.KICK_DUR;
+      const kickReach = 38 * Math.sin(progress * Math.PI);
+      this.playerGfx.fillStyle(this.playerColor, 1);
+      this.playerGfx.fillRect(this.playerX + 10, py + ph - 10, kickReach, 8);
+      // Boot
+      this.playerGfx.fillStyle(0x333333, 1);
+      this.playerGfx.fillRect(this.playerX + 10 + kickReach - 4, py + ph - 12, 10, 10);
+    }
   }
 
   private showChoice(): void {
@@ -335,8 +357,25 @@ export class K9Scene extends Phaser.Scene {
       if (this.invTimer >= this.INV_DUR) this.invincible = false;
     }
 
+    // Kick timers
+    if (this.kickCooldown > 0) this.kickCooldown -= delta;
+    if (this.isKicking) {
+      this.kickTimer += delta;
+      if (this.kickTimer >= this.KICK_DUR) {
+        this.isKicking = false;
+        this.kickTimer = 0;
+      }
+    }
+
     this.mobileControls?.update();
     const mb = this.mobileControls?.state;
+
+    // Kick input
+    if ((Phaser.Input.Keyboard.JustDown(this.zKey) || mb?.actionJustDown) && this.kickCooldown <= 0 && !this.isKicking) {
+      this.isKicking = true;
+      this.kickTimer = 0;
+      this.kickCooldown = this.KICK_CD;
+    }
 
     // Jump
     const onGround = this.playerY >= GROUND_Y;
@@ -370,7 +409,21 @@ export class K9Scene extends Phaser.Scene {
     this.obstacles.forEach(obs => {
       if (obs.hit) return;
       const sx = obs.x - this.scrollX;
-      // Collision check using screen coords
+
+      // Kick hitbox: extends 45px forward from player
+      if (this.isKicking) {
+        const kickProgress = this.kickTimer / this.KICK_DUR;
+        const kickReach = 45 * Math.sin(kickProgress * Math.PI);
+        if (this.rectsOverlap(
+          this.playerX + 10, pr.y, kickReach, pr.h,
+          sx, obs.y, obs.w, obs.h
+        )) {
+          obs.hit = true;
+          return;
+        }
+      }
+
+      // Normal collision check
       if (this.rectsOverlap(
         pr.x, pr.y, pr.w, pr.h,
         sx, obs.y, obs.w, obs.h

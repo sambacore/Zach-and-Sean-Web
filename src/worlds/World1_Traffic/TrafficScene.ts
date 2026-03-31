@@ -10,6 +10,16 @@ interface CopCar {
   vx: number;
   vy: number;
   gfx: Phaser.GameObjects.Graphics;
+  isWreckage: boolean;
+  wreckageTimer: number; // counts down from 3000ms, then respawn
+  smokePhase: number;    // for smoke animation
+}
+
+interface Missile {
+  x: number;
+  y: number;
+  gfx: Phaser.GameObjects.Graphics;
+  alive: boolean;
 }
 
 export class TrafficScene extends Phaser.Scene {
@@ -26,6 +36,13 @@ export class TrafficScene extends Phaser.Scene {
   private copCars: CopCar[] = [];
   private collisions: number = 0;
   private maxCollisions: number = 3;
+
+  // Missiles
+  private missiles: Missile[] = [];
+  private missileCooldown: number = 0;
+  private readonly MISSILE_COOLDOWN = 800;
+  private readonly MISSILE_SPEED = 500;
+  private zKey!: Phaser.Input.Keyboard.Key;
 
   // Timer
   private timeLeft: number = 30;
@@ -56,12 +73,14 @@ export class TrafficScene extends Phaser.Scene {
 
   init(): void {
     this.copCars = [];
+    this.missiles = [];
     this.roadLines = [];
     this.collisions = 0;
     this.timeLeft = 30;
     this.gameActive = true;
     this.invincible = false;
     this.invincibleTimer = 0;
+    this.missileCooldown = 0;
   }
 
   create(): void {
@@ -94,6 +113,9 @@ export class TrafficScene extends Phaser.Scene {
         vx: Phaser.Math.FloatBetween(-30, 30),
         vy: Phaser.Math.FloatBetween(80, 140),
         gfx: this.add.graphics(),
+        isWreckage: false,
+        wreckageTimer: 0,
+        smokePhase: 0,
       };
       this.copCars.push(cop);
     }
@@ -117,7 +139,7 @@ export class TrafficScene extends Phaser.Scene {
     this.statusText.setVisible(false);
 
     // Boss sign
-    createPixelText(this, width / 2, height - 16, 'BOSS: THE SPEED TRAP CAPTAIN', 10, '#444455');
+    createPixelText(this, width / 2, height - 16, 'BOSS: THE SPEED TRAP CAPTAIN  |  Z: SHOOT MISSILE', 10, '#444455');
 
     // Timer
     this.timerEvent = this.time.addEvent({
@@ -129,6 +151,7 @@ export class TrafficScene extends Phaser.Scene {
 
     // Controls
     this.cursors = this.input.keyboard!.createCursorKeys();
+    this.zKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
     this.mobileControls = new MobileControls(this);
 
     // Instruction text (fades out)
@@ -136,7 +159,7 @@ export class TrafficScene extends Phaser.Scene {
       this,
       width / 2,
       height / 2,
-      'DODGE THE COPS FOR 30 SECONDS!\nARROW KEYS TO DRIVE',
+      'DODGE THE COPS FOR 30 SECONDS!\nARROWS: DRIVE  Z/ATK: MISSILE',
       16,
       '#ffffff'
     );
@@ -243,10 +266,46 @@ export class TrafficScene extends Phaser.Scene {
     g.fillRect(x + hw - 8, y + hh - 6, 6, 4);
   }
 
-  private drawCopKart(x: number, y: number): void {
-    const g = this.copCars.find(c => c.x === x && c.y === y)?.gfx;
-    if (!g) return;
+  private drawCopKart(cop: CopCar): void {
+    const g = cop.gfx;
     g.clear();
+    const { x, y } = cop;
+
+    if (cop.isWreckage) {
+      // Wreckage — mangled dark grey heap with animated smoke
+      cop.smokePhase += 0.08;
+      const s = cop.smokePhase;
+
+      // Shadow
+      g.fillStyle(0x000000, 0.4);
+      g.fillEllipse(x, y + 22, 40, 10);
+
+      // Twisted body chunks
+      g.fillStyle(0x222222, 1);
+      g.fillRect(x - 16, y - 10, 32, 22);
+      g.fillStyle(0x333333, 1);
+      g.fillRect(x - 10, y - 18, 20, 12);
+      g.fillRect(x + 8,  y - 8,  12, 8);
+      g.fillRect(x - 18, y,      10, 10);
+
+      // Broken glass glints
+      g.fillStyle(0x88ccff, 0.5);
+      g.fillRect(x - 4, y - 14, 8, 4);
+
+      // Smoke puffs (animated)
+      const smoke = [
+        { ox: 0,   oy: -20, r: 7  + Math.sin(s) * 2 },
+        { ox: -8,  oy: -28, r: 5  + Math.cos(s * 1.3) * 2 },
+        { ox: 8,   oy: -26, r: 6  + Math.sin(s * 0.9) * 2 },
+      ];
+      smoke.forEach(({ ox, oy, r }) => {
+        g.fillStyle(0xee6600, 0.5 + Math.sin(s) * 0.2);
+        g.fillCircle(x + ox, y + oy, r);
+        g.fillStyle(0x333333, 0.5);
+        g.fillCircle(x + ox, y + oy - 4, r * 0.7);
+      });
+      return;
+    }
 
     const hw = 14;
     const hh = 20;
@@ -285,6 +344,18 @@ export class TrafficScene extends Phaser.Scene {
     g.fillRect(x - hw + 4, y - 2, hw * 2 - 8, 4);
   }
 
+  private fireMissile(): void {
+    if (this.missileCooldown > 0) return;
+    this.missileCooldown = this.MISSILE_COOLDOWN;
+    const m: Missile = {
+      x: this.playerX,
+      y: this.playerY - this.playerH / 2,
+      gfx: this.add.graphics().setDepth(20),
+      alive: true,
+    };
+    this.missiles.push(m);
+  }
+
   private onTick(): void {
     if (!this.gameActive) return;
     this.timeLeft--;
@@ -304,7 +375,6 @@ export class TrafficScene extends Phaser.Scene {
 
     const { width, height } = this.scale;
 
-    // Overlay
     const overlay = this.add.graphics();
     overlay.fillStyle(0x000000, 0.7);
     overlay.fillRect(0, 0, width, height);
@@ -314,12 +384,10 @@ export class TrafficScene extends Phaser.Scene {
     createPixelText(this, width / 2, height / 2 + 28, 'NITRO BOOST', 22, '#00ffaa');
     createPixelText(this, width / 2, height / 2 + 56, 'You outran the Speed Trap Captain!', 12, '#888888');
 
-    // Unlock
     const unlockSys = UnlockSystem.getInstance();
     unlockSys.applyWorldUnlocks(1);
     GameState.getInstance().beatWorld(1);
 
-    // Return after delay
     this.time.delayedCall(3500, () => {
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
@@ -334,7 +402,6 @@ export class TrafficScene extends Phaser.Scene {
     this.invincible = true;
     this.invincibleTimer = 0;
 
-    // Update hearts
     const remaining = this.maxCollisions - this.collisions;
     this.collisionText.setText('♥'.repeat(remaining));
 
@@ -376,6 +443,9 @@ export class TrafficScene extends Phaser.Scene {
       }
     }
 
+    // Missile cooldown
+    if (this.missileCooldown > 0) this.missileCooldown -= delta;
+
     // Player movement
     this.mobileControls?.update();
     const mb = this.mobileControls?.state;
@@ -384,6 +454,11 @@ export class TrafficScene extends Phaser.Scene {
     if (this.cursors.up.isDown    || mb?.up)    { this.playerY -= this.playerSpeed * dt; }
     if (this.cursors.down.isDown  || mb?.down)  { this.playerY += this.playerSpeed * dt; }
 
+    // Fire missile
+    if (Phaser.Input.Keyboard.JustDown(this.zKey) || mb?.actionJustDown) {
+      this.fireMissile();
+    }
+
     // Clamp player to road
     this.playerX = Phaser.Math.Clamp(this.playerX, 110, width - 110);
     this.playerY = Phaser.Math.Clamp(this.playerY, 50, height - 50);
@@ -391,15 +466,91 @@ export class TrafficScene extends Phaser.Scene {
     // Scroll road lines
     this.roadLines.forEach(line => {
       line.y += this.roadScrollSpeed * dt;
-      if (line.y > height + 30) {
-        line.y -= height + 60;
-      }
+      if (line.y > height + 30) line.y -= height + 60;
     });
     this.drawRoad();
 
-    // Move cop cars
+    // Update missiles
+    this.missiles = this.missiles.filter(m => {
+      if (!m.alive) { m.gfx.destroy(); return false; }
+
+      m.y -= this.MISSILE_SPEED * dt;
+
+      // Off screen
+      if (m.y < -20) { m.gfx.destroy(); return false; }
+
+      // Draw missile
+      m.gfx.clear();
+      m.gfx.fillStyle(0xff8800, 1);
+      m.gfx.fillRect(m.x - 3, m.y - 10, 6, 12);
+      m.gfx.fillStyle(0xffff00, 1);
+      m.gfx.fillRect(m.x - 2, m.y - 14, 4, 6);
+      // Exhaust flame
+      m.gfx.fillStyle(0xff4400, 0.8);
+      m.gfx.fillRect(m.x - 2, m.y, 4, 6);
+
+      // Hit cop cars
+      this.copCars.forEach(cop => {
+        if (!m.alive) return;
+        if (cop.isWreckage) return;
+        const dx = Math.abs(cop.x - m.x);
+        const dy = Math.abs(cop.y - m.y);
+        if (dx < 18 && dy < 24) {
+          m.alive = false;
+          cop.isWreckage = true;
+          cop.wreckageTimer = 3000;
+          cop.vx = 0;
+          cop.vy = 0;
+        }
+      });
+
+      if (!m.alive) { m.gfx.destroy(); return false; }
+      return true;
+    });
+
+    // Update cop cars
     this.copCars.forEach(cop => {
-      // Chase player roughly
+      if (cop.isWreckage) {
+        // Count down wreckage timer
+        cop.wreckageTimer -= delta;
+
+        // Player hits wreckage
+        if (!this.invincible) {
+          const dx = Math.abs(cop.x - this.playerX);
+          const dy = Math.abs(cop.y - this.playerY);
+          if (dx < 26 && dy < 30) {
+            this.loseLife();
+          }
+        }
+
+        // Other cop cars hit wreckage — chain explosion
+        this.copCars.forEach(other => {
+          if (other === cop || other.isWreckage) return;
+          const dx = Math.abs(other.x - cop.x);
+          const dy = Math.abs(other.y - cop.y);
+          if (dx < 30 && dy < 40) {
+            other.isWreckage = true;
+            other.wreckageTimer = 3000;
+            other.vx = 0;
+            other.vy = 0;
+          }
+        });
+
+        // Respawn after timer
+        if (cop.wreckageTimer <= 0) {
+          cop.isWreckage = false;
+          cop.smokePhase = 0;
+          cop.y = -80;
+          cop.x = Phaser.Math.Between(120, width - 120);
+          cop.vx = Phaser.Math.FloatBetween(-30, 30);
+          cop.vy = Phaser.Math.FloatBetween(80, 140);
+        }
+
+        this.drawCopKart(cop);
+        return;
+      }
+
+      // Normal cop car movement
       const dx = this.playerX - cop.x;
       const chaseStrength = 0.4;
       cop.vx += dx * chaseStrength * dt;
@@ -409,7 +560,7 @@ export class TrafficScene extends Phaser.Scene {
       cop.x += cop.vx * dt;
       cop.y += cop.vy * dt;
 
-      // Wrap around
+      // Wrap around (only if not wreckage)
       if (cop.y > height + 60) {
         cop.y = -60;
         cop.x = Phaser.Math.Between(120, width - 120);
@@ -417,13 +568,11 @@ export class TrafficScene extends Phaser.Scene {
         cop.vy = Phaser.Math.FloatBetween(80, 140);
       }
 
-      // Clamp to road
       cop.x = Phaser.Math.Clamp(cop.x, 115, width - 115);
 
-      // Draw
-      this.drawCopKart(cop.x, cop.y);
+      this.drawCopKart(cop);
 
-      // Collision check
+      // Collision with player
       if (!this.invincible) {
         const dx2 = Math.abs(cop.x - this.playerX);
         const dy2 = Math.abs(cop.y - this.playerY);
@@ -433,7 +582,7 @@ export class TrafficScene extends Phaser.Scene {
       }
     });
 
-    // Draw player
+    // Draw player on top
     const playerAlpha = this.invincible ? (Math.floor(this.invincibleTimer / 100) % 2 === 0 ? 0.3 : 1) : 1;
     this.drawPlayerKart(this.playerX, this.playerY, this.playerColor, playerAlpha);
   }

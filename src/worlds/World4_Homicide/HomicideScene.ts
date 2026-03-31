@@ -12,6 +12,7 @@ interface Guard {
   patrolMax: number;
   patrolDir: number;
   patrolAxis: 'x' | 'y';
+  stunTimer: number; // ms remaining, guard frozen when > 0
 }
 
 interface Evidence {
@@ -38,9 +39,11 @@ export class HomicideScene extends Phaser.Scene {
   private collected = 0;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private zKey!: Phaser.Input.Keyboard.Key;
   private mobileControls?: MobileControls;
   private gameActive = true;
   private alertFlash = 0;
+  private stunCooldown = 0;
 
   private readonly CONE_RANGE = 125;
   private readonly CONE_HALF = 0.55;
@@ -73,9 +76,9 @@ export class HomicideScene extends Phaser.Scene {
     this.playerGfx = this.add.graphics();
 
     this.guards = [
-      { x: 320, y: 200, angle: 0,            patrolMin: 180, patrolMax: 520, patrolDir: 1, patrolAxis: 'x' },
-      { x: 580, y: 150, angle: Math.PI / 2,  patrolMin: 110, patrolMax: 430, patrolDir: 1, patrolAxis: 'y' },
-      { x: 480, y: 460, angle: Math.PI,       patrolMin: 280, patrolMax: 680, patrolDir: 1, patrolAxis: 'x' },
+      { x: 320, y: 200, angle: 0,            patrolMin: 180, patrolMax: 520, patrolDir: 1, patrolAxis: 'x', stunTimer: 0 },
+      { x: 580, y: 150, angle: Math.PI / 2,  patrolMin: 110, patrolMax: 430, patrolDir: 1, patrolAxis: 'y', stunTimer: 0 },
+      { x: 480, y: 460, angle: Math.PI,       patrolMin: 280, patrolMax: 680, patrolDir: 1, patrolAxis: 'x', stunTimer: 0 },
     ];
 
     [{ x: 460, y: 180 }, { x: 195, y: 455 }, { x: 660, y: 370 }].forEach(pos => {
@@ -91,10 +94,11 @@ export class HomicideScene extends Phaser.Scene {
     this.alertText = createPixelText(this, width / 2, height / 2, '! DETECTED !', 28, '#ff2200')
       .setDepth(60).setScrollFactor(0).setAlpha(0);
 
-    createPixelText(this, width / 2, 34, 'COLLECT 3 CLUES — AVOID SIGHT CONES', 11, '#888888')
+    createPixelText(this, width / 2, 34, 'COLLECT 3 CLUES — AVOID SIGHT CONES  |  Z: STUN GUARD', 11, '#888888')
       .setScrollFactor(0).setDepth(50);
 
     this.cursors = this.input.keyboard!.createCursorKeys();
+    this.zKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
     this.mobileControls = new MobileControls(this);
     void height;
   }
@@ -131,21 +135,35 @@ export class HomicideScene extends Phaser.Scene {
 
     this.guardGfx.clear();
     this.guards.forEach(g => {
-      const hot = this.inCone(g);
-      this.guardGfx.fillStyle(hot ? 0xff2200 : 0xffee44, hot ? 0.5 : 0.2);
-      this.guardGfx.beginPath();
-      this.guardGfx.moveTo(g.x, g.y);
-      for (let s = 0; s <= 18; s++) {
-        const a = g.angle - this.CONE_HALF + (s / 18) * this.CONE_HALF * 2;
-        this.guardGfx.lineTo(g.x + Math.cos(a) * this.CONE_RANGE, g.y + Math.sin(a) * this.CONE_RANGE);
+      const stunned = g.stunTimer > 0;
+      const hot = !stunned && this.inCone(g);
+      // Sight cone (hidden when stunned)
+      if (!stunned) {
+        this.guardGfx.fillStyle(hot ? 0xff2200 : 0xffee44, hot ? 0.5 : 0.2);
+        this.guardGfx.beginPath();
+        this.guardGfx.moveTo(g.x, g.y);
+        for (let s = 0; s <= 18; s++) {
+          const a = g.angle - this.CONE_HALF + (s / 18) * this.CONE_HALF * 2;
+          this.guardGfx.lineTo(g.x + Math.cos(a) * this.CONE_RANGE, g.y + Math.sin(a) * this.CONE_RANGE);
+        }
+        this.guardGfx.closePath();
+        this.guardGfx.fillPath();
       }
-      this.guardGfx.closePath();
-      this.guardGfx.fillPath();
       // Guard sprite
-      this.guardGfx.fillStyle(0x2244aa, 1);
+      const bodyColor = stunned ? 0xdddd00 : 0x2244aa;
+      this.guardGfx.fillStyle(bodyColor, 1);
       this.guardGfx.fillRect(g.x - 8, g.y - 8, 16, 20);
-      this.guardGfx.fillStyle(0xffccaa, 1);
+      this.guardGfx.fillStyle(stunned ? 0xffff88 : 0xffccaa, 1);
       this.guardGfx.fillCircle(g.x, g.y - 14, 7);
+      // Dizzy stars when stunned
+      if (stunned) {
+        const t = g.stunTimer / 100;
+        for (let i = 0; i < 3; i++) {
+          const a = t + (i * Math.PI * 2) / 3;
+          this.guardGfx.fillStyle(0xffff00, 1);
+          this.guardGfx.fillCircle(g.x + Math.cos(a) * 12, g.y - 24 + Math.sin(a) * 5, 3);
+        }
+      }
     });
 
     // Evidence icons
@@ -260,8 +278,30 @@ export class HomicideScene extends Phaser.Scene {
     this.playerX = Phaser.Math.Clamp(this.playerX, 18, width - 18);
     this.playerY = Phaser.Math.Clamp(this.playerY, 60, height - 18);
 
+    // Stun cooldown
+    if (this.stunCooldown > 0) this.stunCooldown -= delta;
+
+    // Stun input — stun nearest guard within range
+    if ((Phaser.Input.Keyboard.JustDown(this.zKey) || mb?.actionJustDown) && this.stunCooldown <= 0) {
+      for (const g of this.guards) {
+        if (g.stunTimer > 0) continue;
+        const dx = g.x - this.playerX;
+        const dy = g.y - this.playerY;
+        if (dx * dx + dy * dy < 50 * 50) {
+          g.stunTimer = 2500;
+          this.stunCooldown = 3000;
+          break;
+        }
+      }
+    }
+
     const SPD = this.GUARD_SPD;
     this.guards.forEach(g => {
+      // Tick stun
+      if (g.stunTimer > 0) {
+        g.stunTimer -= delta;
+        return; // frozen, skip patrol
+      }
       if (g.patrolAxis === 'x') {
         g.x += SPD * g.patrolDir * dt;
         if (g.x >= g.patrolMax) { g.x = g.patrolMax; g.patrolDir = -1; g.angle = Math.PI; }
@@ -273,9 +313,10 @@ export class HomicideScene extends Phaser.Scene {
       }
     });
 
-    // Detection check
+    // Detection check (stunned guards can't detect)
     let detected = false;
     for (const g of this.guards) {
+      if (g.stunTimer > 0) continue;
       if (this.inCone(g)) { detected = true; break; }
     }
     if (detected) {
