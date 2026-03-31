@@ -372,7 +372,14 @@ export class PrecinctScene extends Phaser.Scene {
   private drawBoss(): void {
     this.bossGfx.clear();
     const b = this.boss;
-    if (b.health <= 0 && this.currentPhase !== 'phase2') return;
+    if (b.health <= 0 && this.currentPhase !== 'phase2') {
+      // Draw collapsed boss on the ground
+      this.bossGfx.fillStyle(b.color, 0.9);
+      this.bossGfx.fillRect(b.x - 28, b.y + 4, 56, 12);
+      this.bossGfx.fillStyle(0xffccaa, 0.9);
+      this.bossGfx.fillCircle(b.x + 30, b.y + 10, 12);
+      return;
+    }
 
     const flash = this.invincible && Math.floor(this.invTimer / 80) % 2 === 0;
     // Boss body

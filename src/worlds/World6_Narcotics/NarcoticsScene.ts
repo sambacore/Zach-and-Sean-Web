@@ -11,6 +11,7 @@ interface Runner {
   health: number;
   alive: boolean;
   hitTimer: number;
+  deathTimer: number;
   gfx: Phaser.GameObjects.Graphics;
 }
 
@@ -137,7 +138,7 @@ export class NarcoticsScene extends Phaser.Scene {
     const lane = RUNNER_LANES[Phaser.Math.Between(0, RUNNER_LANES.length - 1)];
     const speed = Phaser.Math.Between(70, 110) + (this.wave - 1) * 18;
     const gfx = this.add.graphics();
-    this.runners.push({ x: width + 20, y: lane, speed, health: 2, alive: true, hitTimer: 0, gfx });
+    this.runners.push({ x: width + 20, y: lane, speed, health: 2, alive: true, hitTimer: 0, deathTimer: 0, gfx });
   }
 
   private shootBullet(): void {
@@ -358,15 +359,18 @@ export class NarcoticsScene extends Phaser.Scene {
       return true;
     });
 
-    // Clean dead runners
+    // Tick dead runners and remove after corpse linger
     this.runners = this.runners.filter(r => {
-      if (!r.alive) { r.gfx.destroy(); return false; }
+      if (!r.alive) {
+        r.deathTimer += delta;
+        if (r.deathTimer > 2000) { r.gfx.destroy(); return false; }
+      }
       return true;
     });
 
     // Wave progression
     const allSpawned = this.spawnLeft <= 0;
-    const allDead = this.runners.length === 0;
+    const allDead = this.runners.filter(r => r.alive).length === 0;
     if (allSpawned && allDead && !this.waveCleared) {
       this.waveCleared = true;
       this.waveDelay = 2000;
@@ -399,7 +403,15 @@ export class NarcoticsScene extends Phaser.Scene {
     // Draw runners
     this.runners.forEach(r => {
       r.gfx.clear();
-      if (!r.alive) return;
+      if (!r.alive) {
+        // Collapsed corpse — lying flat
+        const alpha = Math.max(0, 1 - r.deathTimer / 2000);
+        r.gfx.fillStyle(0xaa3300, alpha);
+        r.gfx.fillRect(r.x - 16, r.y + 2, 32, 8);
+        r.gfx.fillStyle(0xffccaa, alpha);
+        r.gfx.fillCircle(r.x + 18, r.y + 6, 7);
+        return;
+      }
       const col = r.hitTimer > 0 ? 0xffffff : 0xaa3300;
       r.gfx.fillStyle(col, 1);
       r.gfx.fillRect(r.x - 8, r.y - 18, 16, 22);

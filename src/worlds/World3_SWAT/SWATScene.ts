@@ -15,6 +15,7 @@ interface SWATEnemy {
   alive: boolean;
   shootTimer: number;
   hitTimer: number;
+  deathTimer: number; // counts up after death for collapse animation
 }
 
 interface Bullet {
@@ -205,6 +206,7 @@ export class SWATScene extends Phaser.Scene {
         alive: true,
         shootTimer: Phaser.Math.Between(1000, 3000),
         hitTimer: 0,
+        deathTimer: 0,
       };
       this.enemies.push(enemy);
     });
@@ -362,7 +364,24 @@ export class SWATScene extends Phaser.Scene {
 
   private drawEnemy(enemy: SWATEnemy): void {
     if (!enemy.alive) {
-      enemy.gfx.clear();
+      // Draw collapsed corpse — lying flat on the ground
+      const g = enemy.gfx;
+      g.clear();
+      const screenX = enemy.x - this.scrollX;
+      const screenY = enemy.y;
+      const { width } = this.scale;
+      if (screenX < -80 || screenX > width + 80) return;
+      // Fade in the collapse over 300ms
+      const alpha = Math.min(enemy.deathTimer / 300, 1);
+      // Body lying horizontal
+      g.fillStyle(0x333344, alpha);
+      g.fillRect(screenX - 14, screenY + 22, 28, 8);
+      // Head
+      g.fillStyle(0xffaa88, alpha);
+      g.fillRect(screenX + 14, screenY + 20, 8, 8);
+      // Helmet
+      g.fillStyle(0x222233, alpha);
+      g.fillRect(screenX + 14, screenY + 18, 10, 6);
       return;
     }
 
@@ -590,6 +609,7 @@ export class SWATScene extends Phaser.Scene {
     // Update enemies
     this.enemies.forEach(enemy => {
       if (!enemy.alive) {
+        enemy.deathTimer += delta;
         this.drawEnemy(enemy);
         return;
       }
