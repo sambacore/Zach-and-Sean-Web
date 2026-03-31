@@ -600,10 +600,11 @@ export class PrecinctScene extends Phaser.Scene {
         }
       }
 
+      if (!p.alive) { p.gfx.destroy(); return false; }
       p.gfx.clear();
       p.gfx.fillStyle(p.friendly ? 0xffff44 : 0xff4400, 1);
       p.gfx.fillCircle(p.x, p.y, p.friendly ? 4 : 5);
-      return p.alive;
+      return true;
     });
 
     // Float texts

@@ -351,10 +351,11 @@ export class NarcoticsScene extends Phaser.Scene {
         }
       });
 
+      if (!b.alive) { b.gfx.destroy(); return false; }
       b.gfx.clear();
       b.gfx.fillStyle(0xffff00, 1);
       b.gfx.fillRect(b.x - 5, b.y - 2, 10, 4);
-      return b.alive;
+      return true;
     });
 
     // Clean dead runners

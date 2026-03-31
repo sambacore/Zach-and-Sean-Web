@@ -689,7 +689,11 @@ export class SWATScene extends Phaser.Scene {
         }
       }
 
-      return b.alive;
+      if (!b.alive) {
+        b.gfx.destroy();
+        return false;
+      }
+      return true;
     });
 
     // Draw background and player
