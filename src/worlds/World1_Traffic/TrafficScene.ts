@@ -500,7 +500,7 @@ export class TrafficScene extends Phaser.Scene {
           cop.isWreckage = true;
           cop.wreckageTimer = 3000;
           cop.vx = 0;
-          cop.vy = 0;
+          cop.vy = this.roadScrollSpeed;
         }
       });
 
@@ -513,6 +513,10 @@ export class TrafficScene extends Phaser.Scene {
       if (cop.isWreckage) {
         // Count down wreckage timer
         cop.wreckageTimer -= delta;
+
+        // Drift down with road scroll
+        cop.vy = this.roadScrollSpeed;
+        cop.y += cop.vy * dt;
 
         // Player hits wreckage
         if (!this.invincible) {
@@ -532,7 +536,7 @@ export class TrafficScene extends Phaser.Scene {
             other.isWreckage = true;
             other.wreckageTimer = 3000;
             other.vx = 0;
-            other.vy = 0;
+            other.vy = this.roadScrollSpeed;
           }
         });
 
