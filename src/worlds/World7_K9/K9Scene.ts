@@ -78,6 +78,10 @@ export class K9Scene extends Phaser.Scene {
   private prevMbDown  = false;
 
   private gameActive = true;
+
+  // ── Sean-specific ─────────────────────────────────────────────────────────
+  private laneChangeDur = LANE_CHG_DUR;  // may be shortened for Sean
+  private dutchCourage  = false;          // Sean passive: first dog-hit ignored
   private state!: GameState;
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -105,6 +109,8 @@ export class K9Scene extends Phaser.Scene {
     this.prevMbRight   = false;
     this.prevMbDown    = false;
     this.gameActive    = true;
+    this.laneChangeDur = LANE_CHG_DUR;
+    this.dutchCourage  = false;
   }
 
   // ─── create ───────────────────────────────────────────────────────────────
@@ -114,6 +120,13 @@ export class K9Scene extends Phaser.Scene {
     this.cameras.main.fadeIn(300, 0, 0, 0);
 
     this.playerColor = this.state.selectedCharacter === 'sean' ? 0x2255cc : 0xcc2222;
+
+    // Sean is the runner — faster, snappier lane changes, Dutch Courage passive
+    if (this.state.selectedCharacter === 'sean') {
+      this.scrollSpeed    = BASE_SPEED * 1.18;  // starts 18% faster
+      this.laneChangeDur  = 85;                 // snappier lane switch (vs 140ms)
+      this.dutchCourage   = true;               // absorbs first dog-progress hit
+    }
 
     // Lane geometry  (road between x=80 and x=width-80)
     const roadL = 80;
@@ -159,10 +172,18 @@ export class K9Scene extends Phaser.Scene {
     createPixelText(this, width - 12, 22, 'DOGS:', 11, '#ff6644')
       .setDepth(51).setScrollFactor(0).setOrigin(1, 0.5);
 
+    // Sean HUD: Dutch Courage indicator
+    if (this.state.selectedCharacter === 'sean') {
+      createPixelText(this, 80, 36, '🍺 DUTCH COURAGE', 9, '#88ccff')
+        .setDepth(51).setScrollFactor(0);
+    }
+
     // Instructions overlay
+    const seanBonus = this.state.selectedCharacter === 'sean'
+      ? '\nSEAN: +SPEED  +FAST LANES  🍺 FREE HIT' : '';
     const inst = createPixelText(
       this, width / 2, height / 2,
-      '← → CHANGE LANE\n↑ / SPACE  JUMP over barriers\n↓ DUCK under tape\nSURVIVE 500 m!',
+      `← → CHANGE LANE\n↑ / SPACE  JUMP over barriers\n↓ DUCK under tape\nSURVIVE 500 m!${seanBonus}`,
       15, '#ffffff'
     ).setDepth(60).setScrollFactor(0);
     this.tweens.add({ targets: inst, alpha: 0, delay: 3000, duration: 700,
@@ -433,6 +454,14 @@ export class K9Scene extends Phaser.Scene {
 
   // ─── Hit & game-over logic ────────────────────────────────────────────────
   private onHit(): void {
+    // Dutch Courage (Sean passive): absorb the first hit entirely
+    if (this.dutchCourage) {
+      this.dutchCourage = false;
+      this.hitFlashT = 600;
+      this.cameras.main.shake(120, 0.006);
+      // Brief "shrug" flash but dogs don't advance
+      return;
+    }
     this.dogProgress += DOG_HIT;
     this.hitFlashT    = 900;
     this.cameras.main.shake(200, 0.012);
@@ -536,7 +565,7 @@ export class K9Scene extends Phaser.Scene {
     // ── Lane-change interpolation ──────────────────────────────────────────
     if (this.laneChanging) {
       this.laneChangeT += delta;
-      const prog = Math.min(1, this.laneChangeT / LANE_CHG_DUR);
+      const prog = Math.min(1, this.laneChangeT / this.laneChangeDur);
       this.playerX = Phaser.Math.Linear(
         this.laneX[this.fromLane],
         this.laneX[this.curLane],
