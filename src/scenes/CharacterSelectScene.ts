@@ -88,17 +88,17 @@ export class CharacterSelectScene extends Phaser.Scene {
     // Nav hint
     createPixelText(this, width / 2, height - 12, 'A / D  or  ← → to switch', 10, '#666666');
 
-    // Click zones
+    // Single zone per panel — first tap selects, second tap confirms
     this.add.zone(zachX, panelY, panelW, panelH).setOrigin(0, 0).setInteractive()
-      .on('pointerdown', () => { this.selected = 'zach'; this.updateSelection(); });
+      .on('pointerdown', () => {
+        if (this.selected === 'zach') { this.confirmSelection(); }
+        else { this.selected = 'zach'; this.updateSelection(); }
+      });
     this.add.zone(seanX, panelY, panelW, panelH).setOrigin(0, 0).setInteractive()
-      .on('pointerdown', () => { this.selected = 'sean'; this.updateSelection(); });
-
-    // Double click / tap to confirm
-    this.add.zone(zachX, panelY, panelW, panelH).setOrigin(0, 0).setInteractive()
-      .on('pointerup', () => { if (this.selected === 'zach') this.confirmSelection(); });
-    this.add.zone(seanX, panelY, panelW, panelH).setOrigin(0, 0).setInteractive()
-      .on('pointerup', () => { if (this.selected === 'sean') this.confirmSelection(); });
+      .on('pointerdown', () => {
+        if (this.selected === 'sean') { this.confirmSelection(); }
+        else { this.selected = 'sean'; this.updateSelection(); }
+      });
 
     // Keys
     const cursors = this.input.keyboard!.createCursorKeys();
