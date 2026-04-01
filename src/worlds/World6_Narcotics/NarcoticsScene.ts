@@ -59,6 +59,7 @@ export class NarcoticsScene extends Phaser.Scene {
 
   private shootCooldown = 0;
   private readonly SHOOT_CD = 350;
+  private effectiveShootCD = 350; // modified by choices
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private zKey!: Phaser.Input.Keyboard.Key;
@@ -99,6 +100,10 @@ export class NarcoticsScene extends Phaser.Scene {
       this.playerSpeed = 165;
     }
 
+    // Ability / choice bonuses
+    if (state.hasAbility('stash')) this.lives += 1;
+    this.effectiveShootCD = state.choices[6] === 'take' ? Math.floor(this.SHOOT_CD * 0.65) : this.SHOOT_CD;
+
     this.bgGfx    = this.add.graphics();
     this.playerGfx = this.add.graphics();
 
@@ -138,7 +143,8 @@ export class NarcoticsScene extends Phaser.Scene {
     const lane = RUNNER_LANES[Phaser.Math.Between(0, RUNNER_LANES.length - 1)];
     const speed = Phaser.Math.Between(70, 110) + (this.wave - 1) * 18;
     const gfx = this.add.graphics();
-    this.runners.push({ x: width + 20, y: lane, speed, health: 2, alive: true, hitTimer: 0, deathTimer: 0, gfx });
+    const runnerHealth = GameState.getInstance().choices[6] === 'burn' ? 1 : 2;
+    this.runners.push({ x: width + 20, y: lane, speed, health: runnerHealth, alive: true, hitTimer: 0, deathTimer: 0, gfx });
   }
 
   private shootBullet(): void {
@@ -293,7 +299,7 @@ export class NarcoticsScene extends Phaser.Scene {
     if (this.shootCooldown > 0) this.shootCooldown -= delta;
     if ((Phaser.Input.Keyboard.JustDown(this.zKey) || mb?.actionJustDown) && this.shootCooldown <= 0) {
       this.shootBullet();
-      this.shootCooldown = this.SHOOT_CD;
+      this.shootCooldown = this.effectiveShootCD;
     }
 
     // Place trap

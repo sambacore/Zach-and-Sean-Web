@@ -94,6 +94,15 @@ export class PrecinctScene extends Phaser.Scene {
   private mobileControls?: MobileControls;
 
   private gameActive = true;
+
+  // Choice/ability effects
+  private bonusDamage = 0;          // choices[4]=keep, bodyArmor
+  private badgePhaseDelay = false;  // choices[8]=cover
+  private exposeMode = false;       // choices[8]=expose
+  private k9DashTimer = 0;          // choices[7]=befriend
+  private k9DashActive = false;
+  private k9DashX = -100;
+  private k9GfxLayer!: Phaser.GameObjects.Graphics;
   private state!: GameState;
 
   constructor() { super({ key: 'PrecinctScene' }); }
@@ -157,29 +166,66 @@ export class PrecinctScene extends Phaser.Scene {
     this.zKey    = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
     this.xKey    = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.X);
     this.mobileControls = new MobileControls(this);
+    this.k9GfxLayer = this.add.graphics().setDepth(30).setScrollFactor(0);
+
+    // Apply ability/choice bonuses
+    this.applyBonuses();
 
     this.updateHUD();
     void height;
   }
 
+  private applyBonuses(): void {
+    const s = this.state;
+    // bodyArmor = +1 HP
+    if (s.hasAbility('bodyArmor')) {
+      this.playerMaxHp += 1;
+      this.playerHealth = this.playerMaxHp;
+    }
+    // choices[4] = keep evidence → +1 damage per hit
+    if (s.choices[4] === 'keep') this.bonusDamage += 1;
+    // choices[8] = expose → boss gets +50% HP, player deals 2x damage
+    if (s.choices[8] === 'expose') {
+      this.exposeMode = true;
+      this.bonusDamage += 3; // effectively 2x (base 3 → 6, base 2 → 4-ish)
+    }
+    // choices[8] = cover → badge delays boss shooting at phase start
+    if (s.choices[8] === 'cover') this.badgePhaseDelay = true;
+    // choices[7] = befriend → K9 dash every 15s
+    if (s.choices[7] === 'befriend') {
+      this.k9DashTimer = 15000;
+    }
+  }
+
   private initBoss1(): void {
+    const hp = this.exposeMode ? Math.floor(P1_HP * 1.5) : P1_HP;
+    const color = this.exposeMode ? 0xaa2222 : 0x446688;
     this.boss = {
       x: 620, y: GROUND_Y,
-      health: P1_HP, maxHealth: P1_HP,
+      health: hp, maxHealth: hp,
       vx: 0, phase: 'phase1',
-      color: 0x446688,
-      chargeTimer: 2500, chargeDir: -1,
+      color,
+      chargeTimer: this.badgePhaseDelay ? 99999 : 2500, chargeDir: -1,
       charging: false, chargeCooldown: 0,
-      shootTimer: 3000,
+      shootTimer: this.badgePhaseDelay ? 4000 : 3000,
     };
+    if (this.badgePhaseDelay) {
+      this.time.delayedCall(4000, () => {
+        if (this.boss.phase === 'phase1') {
+          this.boss.chargeTimer = 2500;
+          this.boss.shootTimer = 3000;
+        }
+      });
+    }
     this.currentPhase = 'phase1';
   }
 
   private initBoss2(): void {
     const isZach = this.state.selectedCharacter === 'zach';
+    const hp2 = this.exposeMode ? Math.floor(P2_HP * 1.5) : P2_HP;
     this.boss = {
       x: 620, y: GROUND_Y,
-      health: P2_HP, maxHealth: P2_HP,
+      health: hp2, maxHealth: hp2,
       vx: 0, phase: 'phase2',
       color: isZach ? 0x2255cc : 0xcc2222,   // fight the opposite character
       chargeTimer: 1800, chargeDir: -1,
@@ -251,10 +297,11 @@ export class PrecinctScene extends Phaser.Scene {
     this.attackCooldown = this.ATK_CD;
     // Hit check
     if (Math.abs(this.playerX - this.boss.x) < 70 && Math.abs(this.playerY - this.boss.y) < 60) {
-      const dmg = this.state.selectedCharacter === 'zach' ? 3 : 2;
+      const baseDmg = this.state.selectedCharacter === 'zach' ? 3 : 2;
+      const dmg = baseDmg + this.bonusDamage;
       this.boss.health -= dmg;
       this.boss.health = Math.max(0, this.boss.health);
-      this.addFloat(`-${dmg}`, this.boss.x, this.boss.y - 40, '#ff4444');
+      this.addFloat(`-${dmg}`, this.boss.x, this.boss.y - 40, this.exposeMode ? '#ff8800' : '#ff4444');
       this.updateHUD();
       if (this.boss.health <= 0) this.onBossDeath();
     }
@@ -627,6 +674,40 @@ export class PrecinctScene extends Phaser.Scene {
     this.drawBg();
     this.drawBoss();
     this.drawPlayer();
+
+    // K9 dog dash (choices[7] = befriend)
+    if (this.state.choices[7] === 'befriend') {
+      this.k9GfxLayer.clear();
+      if (!this.k9DashActive) {
+        this.k9DashTimer -= delta;
+        if (this.k9DashTimer <= 0) {
+          this.k9DashActive = true;
+          this.k9DashX = -30;
+        }
+      } else {
+        this.k9DashX += 600 * dt;
+        // Dog sprite
+        const dY = GROUND_Y - 14;
+        this.k9GfxLayer.fillStyle(0x995522, 1);
+        this.k9GfxLayer.fillRect(this.k9DashX - 12, dY, 24, 10);
+        this.k9GfxLayer.fillRect(this.k9DashX - 4, dY - 10, 14, 10);
+        this.k9GfxLayer.fillStyle(0xff4400, 1);
+        this.k9GfxLayer.fillRect(this.k9DashX - 2, dY - 8, 3, 3);
+        // Check boss hit
+        if (Math.abs(this.k9DashX - this.boss.x) < 30) {
+          this.boss.health -= 5;
+          this.boss.health = Math.max(0, this.boss.health);
+          this.addFloat('-5 🐕', this.boss.x, this.boss.y - 55, '#cc8800');
+          this.updateHUD();
+          if (this.boss.health <= 0) this.onBossDeath();
+          this.k9DashX = 900; // skip past
+        }
+        if (this.k9DashX > width + 40) {
+          this.k9DashActive = false;
+          this.k9DashTimer = 15000;
+        }
+      }
+    }
 
     void width; void height;
   }

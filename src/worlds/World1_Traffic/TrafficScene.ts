@@ -44,6 +44,15 @@ export class TrafficScene extends Phaser.Scene {
   private readonly MISSILE_SPEED = 500;
   private zKey!: Phaser.Input.Keyboard.Key;
 
+  // Nitro boost (NG+ ability)
+  private hasNitro: boolean = false;
+  private nitroActive: boolean = false;
+  private nitroTimer: number = 0;
+  private readonly NITRO_DURATION: number = 2000;
+  private nitroCooldown: number = 0;
+  private readonly NITRO_COOLDOWN: number = 6000;
+  private nitroText?: Phaser.GameObjects.Text;
+
   // Timer
   private timeLeft: number = 30;
   private timerText!: Phaser.GameObjects.Text;
@@ -81,6 +90,10 @@ export class TrafficScene extends Phaser.Scene {
     this.invincible = false;
     this.invincibleTimer = 0;
     this.missileCooldown = 0;
+    this.hasNitro = false;
+    this.nitroActive = false;
+    this.nitroTimer = 0;
+    this.nitroCooldown = 0;
   }
 
   create(): void {
@@ -154,6 +167,9 @@ export class TrafficScene extends Phaser.Scene {
     this.zKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
     this.mobileControls = new MobileControls(this);
 
+    // Apply NG+ bonuses
+    this.applyBonuses();
+
     // Instruction text (fades out)
     const instructions = createPixelText(
       this,
@@ -172,6 +188,16 @@ export class TrafficScene extends Phaser.Scene {
     });
 
     this.drawRoad();
+  }
+
+  private applyBonuses(): void {
+    const { width } = this.scale;
+    this.hasNitro = this.state.hasAbility('nitroBoost');
+    if (this.hasNitro) {
+      this.nitroText = createPixelText(this, 190, 22, 'NITRO: READY', 10, '#00ffaa');
+      this.nitroText.setOrigin(0.5, 0.5);
+    }
+    void width;
   }
 
   private drawRoad(): void {
@@ -228,6 +254,12 @@ export class TrafficScene extends Phaser.Scene {
     const hw = this.playerW / 2;
     const hh = this.playerH / 2;
 
+    // Nitro glow
+    if (this.nitroActive) {
+      g.fillStyle(0x00ffaa, 0.3);
+      g.fillEllipse(x, y, this.playerW + 20, this.playerH + 20);
+    }
+
     // Car shadow
     g.fillStyle(0x000000, 0.3);
     g.fillEllipse(x + 3, y + hh + 4, this.playerW + 6, 10);
@@ -260,8 +292,8 @@ export class TrafficScene extends Phaser.Scene {
     g.fillRect(x - hw + 2, y - hh + 2, 6, 4);
     g.fillRect(x + hw - 8, y - hh + 2, 6, 4);
 
-    // Taillights
-    g.fillStyle(0xff2200, 1);
+    // Taillights (extra bright when nitro active)
+    g.fillStyle(this.nitroActive ? 0x00ffaa : 0xff2200, 1);
     g.fillRect(x - hw + 2, y + hh - 6, 6, 4);
     g.fillRect(x + hw - 8, y + hh - 6, 6, 4);
   }
@@ -446,17 +478,42 @@ export class TrafficScene extends Phaser.Scene {
     // Missile cooldown
     if (this.missileCooldown > 0) this.missileCooldown -= delta;
 
+    // Nitro boost tracking
+    if (this.hasNitro) {
+      if (this.nitroActive) {
+        this.nitroTimer += delta;
+        if (this.nitroTimer >= this.NITRO_DURATION) {
+          this.nitroActive = false;
+          this.nitroCooldown = this.NITRO_COOLDOWN;
+          if (this.nitroText) this.nitroText.setText('NITRO: COOLING').setColor('#888888');
+        }
+      } else if (this.nitroCooldown > 0) {
+        this.nitroCooldown -= delta;
+        if (this.nitroCooldown <= 0 && this.nitroText) {
+          this.nitroText.setText('NITRO: READY').setColor('#00ffaa');
+        }
+      }
+    }
+
     // Player movement
     this.mobileControls?.update();
     const mb = this.mobileControls?.state;
-    if (this.cursors.left.isDown  || mb?.left)  { this.playerX -= this.playerSpeed * dt; }
-    if (this.cursors.right.isDown || mb?.right) { this.playerX += this.playerSpeed * dt; }
-    if (this.cursors.up.isDown    || mb?.up)    { this.playerY -= this.playerSpeed * dt; }
-    if (this.cursors.down.isDown  || mb?.down)  { this.playerY += this.playerSpeed * dt; }
+    const currentSpeed = this.nitroActive ? this.playerSpeed * 2.2 : this.playerSpeed;
+    if (this.cursors.left.isDown  || mb?.left)  { this.playerX -= currentSpeed * dt; }
+    if (this.cursors.right.isDown || mb?.right) { this.playerX += currentSpeed * dt; }
+    if (this.cursors.up.isDown    || mb?.up)    { this.playerY -= currentSpeed * dt; }
+    if (this.cursors.down.isDown  || mb?.down)  { this.playerY += currentSpeed * dt; }
 
-    // Fire missile
+    // Fire missile (Z alone) or activate nitro (DOWN + Z)
     if (Phaser.Input.Keyboard.JustDown(this.zKey) || mb?.actionJustDown) {
-      this.fireMissile();
+      const downHeld = this.cursors.down.isDown;
+      if (this.hasNitro && downHeld && !this.nitroActive && this.nitroCooldown <= 0) {
+        this.nitroActive = true;
+        this.nitroTimer = 0;
+        if (this.nitroText) this.nitroText.setText('NITRO: ACTIVE').setColor('#ffff00');
+      } else if (!this.hasNitro || !downHeld) {
+        this.fireMissile();
+      }
     }
 
     // Clamp player to road

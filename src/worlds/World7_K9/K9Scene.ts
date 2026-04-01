@@ -60,6 +60,12 @@ export class K9Scene extends Phaser.Scene {
   private readonly KICK_DUR = 250;
   private readonly KICK_CD = 600;
 
+  // Dog companion (befriend choice)
+  private dogActive = false;
+  private dogCooldown = 0;
+  private readonly DOG_CD = 8000;
+  private dogBarGfx!: Phaser.GameObjects.Graphics;
+
   constructor() { super({ key: 'K9Scene' }); }
 
   init(): void {
@@ -81,6 +87,8 @@ export class K9Scene extends Phaser.Scene {
     this.isKicking = false;
     this.kickTimer = 0;
     this.kickCooldown = 0;
+    this.dogActive = false;
+    this.dogCooldown = 0;
   }
 
   create(): void {
@@ -113,6 +121,16 @@ export class K9Scene extends Phaser.Scene {
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.zKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
     this.mobileControls = new MobileControls(this);
+
+    // Ability bonuses
+    if (state.hasAbility('dogCompanion') && state.choices[7] === 'befriend') {
+      this.dogActive = true;
+      this.dogCooldown = this.DOG_CD;
+    }
+    if (state.choices[7] === 'ignore') {
+      this.scrollSpeed *= 1.10;
+    }
+    this.dogBarGfx = this.add.graphics().setDepth(51).setScrollFactor(0);
     void height;
   }
 
@@ -435,6 +453,37 @@ export class K9Scene extends Phaser.Scene {
 
     // Remove off-screen obstacles
     this.obstacles = this.obstacles.filter(obs => (obs.x - this.scrollX) > -100);
+
+    // Dog companion logic
+    if (this.dogActive) {
+      this.dogCooldown -= delta;
+      // Auto-destroy next upcoming obstacle when cooldown fires
+      if (this.dogCooldown <= 0) {
+        this.dogCooldown = this.DOG_CD;
+        // Find next obstacle ahead of player
+        const next = this.obstacles.find(obs => !obs.hit && (obs.x - this.scrollX) > this.playerX);
+        if (next) next.hit = true;
+      }
+      // Draw dog cooldown bar
+      this.dogBarGfx.clear();
+      const pct = 1 - (this.dogCooldown / this.DOG_CD);
+      this.dogBarGfx.fillStyle(0x333322, 1);
+      this.dogBarGfx.fillRect(10, 52, 80, 6);
+      this.dogBarGfx.fillStyle(0xcc8800, 1);
+      this.dogBarGfx.fillRect(10, 52, 80 * pct, 6);
+      // Dog sprite running beside player
+      const dogX = this.playerX - 28;
+      const dogY = GROUND_Y - 14;
+      this.dogBarGfx.fillStyle(0x995522, 1);
+      this.dogBarGfx.fillRect(dogX - 10, dogY, 20, 10); // body
+      this.dogBarGfx.fillRect(dogX - 4, dogY - 8, 12, 10); // head
+      this.dogBarGfx.fillStyle(0xff4400, 1);
+      this.dogBarGfx.fillRect(dogX - 2, dogY - 6, 3, 3); // eye
+      // Tail wag
+      const waggle = Math.sin(Date.now() / 120) * 4;
+      this.dogBarGfx.fillStyle(0x775522, 1);
+      this.dogBarGfx.fillRect(dogX + 10, dogY + waggle, 8, 4);
+    }
 
     // Draw
     this.drawBg();

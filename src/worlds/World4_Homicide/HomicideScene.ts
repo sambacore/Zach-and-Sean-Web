@@ -133,10 +133,24 @@ export class HomicideScene extends Phaser.Scene {
     this.bgGfx.fillRect(410, 88, 70, 85);
     this.bgGfx.fillRect(620, 88, 90, 55);
 
+    const state = GameState.getInstance();
     this.guardGfx.clear();
     this.guards.forEach(g => {
       const stunned = g.stunTimer > 0;
       const hot = !stunned && this.inCone(g);
+      // Detective vision: dashed warning ring beyond cone range
+      if (!stunned && state.hasAbility('detectiveVision')) {
+        const warningRange = this.CONE_RANGE * 1.5;
+        this.guardGfx.lineStyle(1, 0x00ffaa, 0.35);
+        this.guardGfx.beginPath();
+        for (let s = 0; s <= 20; s++) {
+          const a = g.angle - this.CONE_HALF * 1.2 + (s / 20) * this.CONE_HALF * 2.4;
+          const px = g.x + Math.cos(a) * warningRange;
+          const py = g.y + Math.sin(a) * warningRange;
+          s === 0 ? this.guardGfx.moveTo(px, py) : this.guardGfx.lineTo(px, py);
+        }
+        this.guardGfx.strokePath();
+      }
       // Sight cone (hidden when stunned)
       if (!stunned) {
         this.guardGfx.fillStyle(hot ? 0xff2200 : 0xffee44, hot ? 0.5 : 0.2);

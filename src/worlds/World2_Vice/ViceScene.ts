@@ -66,6 +66,12 @@ export class ViceScene extends Phaser.Scene {
 
   // State
   private gameActive: boolean = true;
+
+  // Ability bonuses
+  private comboTimer: number = 0;
+  private comboActive: boolean = false;
+  private armorUsed: boolean = false;
+  private hasDetectiveVision: boolean = false;
   private state!: GameState;
   private floatTexts: FloatText[] = [];
 
@@ -92,6 +98,10 @@ export class ViceScene extends Phaser.Scene {
     this.attackCooldown = 0;
     this.playerVY = 0;
     this.playerFacing = 1;
+    this.comboTimer = 0;
+    this.comboActive = false;
+    this.armorUsed = false;
+    this.hasDetectiveVision = false;
   }
 
   create(): void {
@@ -103,6 +113,16 @@ export class ViceScene extends Phaser.Scene {
     this.playerSpeed = this.state.selectedCharacter === 'sean' ? 220 : 160;
     this.playerDamage = this.state.selectedCharacter === 'sean' ? 1 : 3;
     this.playerMaxHealth = this.state.selectedCharacter === 'sean' ? 3 : 5;
+
+    // Apply ability bonuses
+    if (this.state.hasAbility('bodyArmor')) {
+      this.playerMaxHealth += 1;
+      this.armorUsed = false;
+    }
+    if (this.state.hasAbility('streetCombo')) {
+      this.playerDamage += 1;
+    }
+    this.hasDetectiveVision = this.state.hasAbility('detectiveVision');
     this.playerHealth = this.playerMaxHealth;
 
     this.playerGroundY = height - 100;
@@ -425,14 +445,17 @@ export class ViceScene extends Phaser.Scene {
       const dy = enemy.y - this.playerY;
       const reach = 60;
       if (Math.abs(dx) < reach && Math.abs(dy) < 40 && Math.sign(dx) === this.playerFacing) {
-        enemy.health -= this.playerDamage;
+                // streetCombo: double damage if combo active
+        const comboDmg = (this.state.hasAbility('streetCombo') && this.comboActive)
+          ? this.playerDamage * 2 : this.playerDamage;
+        enemy.health -= comboDmg;
         enemy.hitTimer = 200;
 
         // Float damage text
         const ft: FloatText = {
           text: this.add.text(
             eScreenX, enemy.y - 20,
-            `-${this.playerDamage}`,
+            `-${comboDmg}`,
             {
               fontFamily: '"Courier New", Courier, monospace',
               fontSize: '14px',
@@ -450,6 +473,19 @@ export class ViceScene extends Phaser.Scene {
           enemy.alive = false;
           this.enemiesDefeated++;
           this.updateHUD();
+
+          // streetCombo: start/refresh combo window on kill
+          if (this.state.hasAbility('streetCombo')) {
+            this.comboTimer = 600;
+            this.comboActive = true;
+            this.floatTexts.push({
+              text: this.add.text(eScreenX, enemy.y - 40, 'COMBO!', {
+                fontFamily: '"Courier New", Courier, monospace',
+                fontSize: '16px', color: '#ffff00', stroke: '#000000', strokeThickness: 2,
+              }).setDepth(22).setScrollFactor(0),
+              vy: -80, life: 600,
+            });
+          }
 
           if (this.enemiesDefeated >= this.totalEnemies) {
             this.time.delayedCall(500, () => this.winGame());
@@ -491,6 +527,14 @@ export class ViceScene extends Phaser.Scene {
 
   private takeDamage(): void {
     if (this.invincible) return;
+    // Body armor absorbs one hit
+    if (this.state.hasAbility('bodyArmor') && !this.armorUsed) {
+      this.armorUsed = true;
+      this.invincible = true;
+      this.invincibleTimer = 0;
+      this.updateHUD();
+      return;
+    }
     this.playerHealth--;
     this.invincible = true;
     this.invincibleTimer = 0;
@@ -522,6 +566,12 @@ export class ViceScene extends Phaser.Scene {
     if (this.invincible) {
       this.invincibleTimer += delta;
       if (this.invincibleTimer >= this.INV_DURATION) this.invincible = false;
+    }
+
+    // Combo timer
+    if (this.comboTimer > 0) {
+      this.comboTimer -= delta;
+      if (this.comboTimer <= 0) this.comboActive = false;
     }
 
     // Attack cooldown
@@ -596,6 +646,25 @@ export class ViceScene extends Phaser.Scene {
 
     // Draw player
     this.drawPlayer();
+
+    // Detective vision: arrows pointing to off-screen enemies
+    if (this.hasDetectiveVision) {
+      this.fgGfx.lineStyle(2, 0x00ffcc, 0.8);
+      this.enemies.forEach(enemy => {
+        if (!enemy.alive) return;
+        const sx = enemy.x - this.scrollX;
+        if (sx >= 0 && sx <= width) return; // on screen, skip
+        const dir = sx < 0 ? -1 : 1;
+        const arrowX = dir < 0 ? 20 : width - 20;
+        const arrowY = Math.min(Math.max(enemy.y, 60), height - 20);
+        this.fgGfx.fillStyle(0x00ffcc, 0.8);
+        this.fgGfx.fillTriangle(
+          arrowX + dir * 12, arrowY,
+          arrowX - dir * 4, arrowY - 8,
+          arrowX - dir * 4, arrowY + 8
+        );
+      });
+    }
 
     // Update float texts
     this.floatTexts = this.floatTexts.filter(ft => {

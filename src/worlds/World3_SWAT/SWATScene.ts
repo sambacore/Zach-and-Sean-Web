@@ -85,6 +85,7 @@ export class SWATScene extends Phaser.Scene {
   // Invincibility
   private invincible: boolean = false;
   private invincibleTimer: number = 0;
+  private badgeDelayActive: boolean = false; // enemies won't shoot for 2s at start
   private readonly INV_DURATION: number = 1200;
 
   constructor() {
@@ -116,6 +117,15 @@ export class SWATScene extends Phaser.Scene {
     this.playerSpeed = this.state.selectedCharacter === 'sean' ? 220 : 180;
     this.playerDamage = this.state.selectedCharacter === 'sean' ? 1 : 2;
     this.playerMaxHealth = this.state.selectedCharacter === 'sean' ? 3 : 5;
+
+    // Ability bonuses
+    if (this.state.hasAbility('bodyArmor')) this.playerMaxHealth += 1;
+    if (this.state.hasAbility('streetCombo')) this.playerDamage += 1;
+    this.badgeDelayActive = this.state.hasAbility('badge');
+    if (this.badgeDelayActive) {
+      this.time.delayedCall(2000, () => { this.badgeDelayActive = false; });
+    }
+
     this.playerHealth = this.playerMaxHealth;
 
     this.playerY = this.GROUND_Y - 40;
@@ -635,8 +645,8 @@ export class SWATScene extends Phaser.Scene {
         enemy.onGround = true;
       }
 
-      // Shoot at player
-      enemy.shootTimer -= delta;
+      // Shoot at player (badge delays enemy shooting for 2s)
+      if (!this.badgeDelayActive) enemy.shootTimer -= delta;
       if (enemy.shootTimer <= 0 && Math.abs(screenX) < width) {
         enemy.shootTimer = Phaser.Math.Between(1500, 3000);
         const shootVX = this.playerX < enemy.x ? -300 : 300;
