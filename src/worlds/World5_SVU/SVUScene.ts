@@ -290,10 +290,14 @@ export class SVUScene extends Phaser.Scene {
           .setDepth(81).setScrollFactor(0)
       );
     } else {
-      objs.push(
-        createPixelText(this, width / 2, dlgY + 140, '[ Z ] CLOSE', 13, '#445566')
-          .setDepth(81).setScrollFactor(0)
-      );
+      const closeLabel = createPixelText(this, width / 2, dlgY + 140, '[ Z ] CLOSE', 13, '#445566')
+        .setDepth(81).setScrollFactor(0);
+      objs.push(closeLabel);
+      // Touch zone for close button
+      const closeZone = this.add.zone(width / 2 - 80, dlgY + 120, 160, 44)
+        .setOrigin(0, 0).setInteractive().setDepth(83).setScrollFactor(0);
+      closeZone.on('pointerup', () => this.closeDialog());
+      objs.push(closeZone);
     }
 
     this.dialogGfx = gfx;
@@ -652,7 +656,8 @@ export class SVUScene extends Phaser.Scene {
       }
     } else {
       // Close with Z (only when not mid-feedback)
-      if ((Phaser.Input.Keyboard.JustDown(this.zKey) || mb?.actionJustDown) && !this.feedbackActive) {
+      const canClose = !this.feedbackActive || (this.activeWitness?.done ?? false);
+      if ((Phaser.Input.Keyboard.JustDown(this.zKey) || mb?.actionJustDown) && canClose) {
         this.closeDialog();
       }
       // Approach keys 1/2/3
