@@ -33,6 +33,7 @@ export class HomicideScene extends Phaser.Scene {
   private guardGfx!: Phaser.GameObjects.Graphics;
   private hudText!: Phaser.GameObjects.Text;
   private alertText!: Phaser.GameObjects.Text;
+  private clueTexts: Phaser.GameObjects.Text[] = [];
 
   private guards: Guard[] = [];
   private evidence: Evidence[] = [];
@@ -54,6 +55,7 @@ export class HomicideScene extends Phaser.Scene {
   init(): void {
     this.guards = [];
     this.evidence = [];
+    this.clueTexts = [];
     this.collected = 0;
     this.gameActive = true;
     this.alertFlash = 0;
@@ -86,10 +88,25 @@ export class HomicideScene extends Phaser.Scene {
       this.evidence.push({ ...pos, collected: false, gfx });
     });
 
-    this.hudText = this.add.text(10, 10, 'EVIDENCE: 0 / 3', {
+    this.hudText = this.add.text(width / 2, 20, 'CLUES: 0/3', {
       fontFamily: '"Courier New", Courier, monospace',
       fontSize: '14px', color: '#ffdd00',
-    }).setDepth(50).setScrollFactor(0).setOrigin(0, 0.5);
+    }).setDepth(50).setScrollFactor(0).setOrigin(0.5, 0.5);
+
+    // Case notes panel (bottom-right)
+    const panelW = 200, panelH = 76;
+    const panelX = width - 10 - panelW;
+    const panelY = height - 10 - panelH;
+    const notesBg = this.add.graphics().setDepth(50).setScrollFactor(0);
+    notesBg.fillStyle(0x000000, 0.6);
+    notesBg.fillRect(panelX, panelY, panelW, panelH);
+    createPixelText(this, panelX + panelW / 2, panelY + 10, 'CASE NOTES', 9, '#888888')
+      .setDepth(51).setScrollFactor(0);
+    const clueNotes = ['Victim: Det. Morris', 'Weapon: Service pistol', 'Suspect: Chain of command'];
+    this.clueTexts = clueNotes.map((note, i) =>
+      createPixelText(this, panelX + 8, panelY + 26 + i * 17, note, 9, '#ffdd88')
+        .setDepth(51).setScrollFactor(0).setAlpha(0)
+    );
 
     this.alertText = createPixelText(this, width / 2, height / 2, '! DETECTED !', 28, '#ff2200')
       .setDepth(60).setScrollFactor(0).setAlpha(0);
@@ -348,7 +365,8 @@ export class HomicideScene extends Phaser.Scene {
       if (Math.abs(ev.x - this.playerX) < 22 && Math.abs(ev.y - this.playerY) < 22) {
         ev.collected = true;
         this.collected++;
-        this.hudText.setText(`EVIDENCE: ${this.collected} / 3`);
+        this.hudText.setText(`CLUES: ${this.collected}/3`);
+        this.clueTexts[this.collected - 1]?.setAlpha(1);
       }
     });
 
