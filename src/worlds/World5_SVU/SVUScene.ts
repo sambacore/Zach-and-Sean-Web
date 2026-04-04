@@ -286,15 +286,20 @@ export class SVUScene extends Phaser.Scene {
       });
 
       objs.push(
-        createPixelText(this, width / 2, dlgY + 170, '1 / 2 / 3 to choose  |  Z to close', 9, '#333355')
+        createPixelText(this, width / 2, dlgY + 174, '1 / 2 / 3 to choose  |  tap button or Z to close', 9, '#667788')
           .setDepth(81).setScrollFactor(0)
       );
     } else {
-      const closeLabel = createPixelText(this, width / 2, dlgY + 140, '[ Z ] CLOSE', 13, '#445566')
-        .setDepth(81).setScrollFactor(0);
-      objs.push(closeLabel);
-      // Touch zone for close button
-      const closeZone = this.add.zone(width / 2 - 80, dlgY + 120, 160, 44)
+      // Full-width close button — visible and tappable
+      gfx.fillStyle(0x1a2a1a, 1);
+      gfx.fillRect(50, dlgY + 168, width - 100, 40);
+      gfx.lineStyle(2, 0x44ff88, 1);
+      gfx.strokeRect(50, dlgY + 168, width - 100, 40);
+      objs.push(
+        createPixelText(this, width / 2, dlgY + 188, '[ TAP / Z ] CLOSE', 14, '#44ff88')
+          .setDepth(82).setScrollFactor(0)
+      );
+      const closeZone = this.add.zone(50, dlgY + 168, width - 100, 40)
         .setOrigin(0, 0).setInteractive().setDepth(83).setScrollFactor(0);
       closeZone.on('pointerup', () => this.closeDialog());
       objs.push(closeZone);
